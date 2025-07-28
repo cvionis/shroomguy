@@ -20,9 +20,18 @@ struct GameState {
   R_Context *renderer;
   R_Font *font;
   B32 quit;
+  
+  G_Input input;
 };
 
 global GameState game;
+
+// --------------- --------------- ---------------
+
+
+
+
+// --------------- --------------- ---------------
 
 function void 
 update(void)
@@ -30,12 +39,12 @@ update(void)
   OS_Handle window = game.window;
   
   OS_EventList *events = os_get_events();
-  
   for (OS_Event *e = events->first; e != 0; e = e->next) {
     if (e->kind == OS_EventKind_WindowClose) {
       game.quit = 1;
     }
   }
+  g_get_input(window, &game.input, events);
 }
 
 function void 

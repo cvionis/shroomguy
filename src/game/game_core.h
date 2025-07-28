@@ -1,6 +1,12 @@
 #pragma once
 
 //
+// Constants 
+//
+
+#define G_TILEMAP_TOKENS_MAX 256
+
+//
 // Input
 //
 
@@ -64,8 +70,91 @@ struct G_Input {
   }mouse;
 };
 
+//
+// Transitions
+//
+
+enum G_TransitionCurve {
+  G_TransitionCurve_Linear,
+  G_TransitionCurve_ExponentialEaseIn,
+  G_TransitionCurve_QuinticEaseInOut,
+};
+
+struct G_TransitionF32 {
+  F32 src;
+  F32 dst;
+  
+  F32 t;
+  B32 active;
+  F32 speed;
+  
+  G_TransitionCurve curve;
+};
+
+struct G_TransitionV2F32 {
+  V2F32 src;
+  V2F32 dst;
+  
+  F32 t;
+  B32 active;
+  F32 speed;
+  
+  G_TransitionCurve curve;
+};
+
+//
+// Tiles
+//
+
+enum G_TileToken {
+  G_TileToken_Empty  = (0 << 0),
+  G_TileToken_Dirt   = (1 << 0),
+  G_TileToken_Stone  = (1 << 1),
+  G_TileToken_Ore    = (1 << 2),
+  G_TileToken_Hazard = (1 << 3),
+  G_TileToken_Enemy  = (1 << 4),
+  G_TileToken_Player = (1 << 5),
+};
+
+//
+// Undo System
+//
+
+struct G_UndoNode {
+  G_UndoNode *stack_next;
+  G_UndoNode *free_next;
+  
+  G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
+};
+
+struct G_UndoContext {
+  Arena *arena;
+  
+  G_UndoNode *first; // Most recent undo state
+  G_UndoNode *last;  // Least recent undo state
+  U32 count;
+  
+  G_UndoNode *free;
+};
+
+//
+// Gameplay API
+//
+
+// Input
 function void g_get_input(OS_Handle window, G_Input *input, OS_EventList *events);
 function B32 g_key_pressed(G_Input *input, G_Key key);
 function B32 g_key_down(G_Input *input, G_Key key);
 function B32 g_mouse_pressed(G_Input *input, G_MouseButton btn);
 function B32 g_mouse_down(G_Input *input, G_MouseButton btn);
+
+// Undo System
+function G_UndoContext g_undo_make(void);
+function void g_undo_release(G_UndoContext *undo);
+function void g_undo_clear(G_UndoContext *undo);
+
+// Transitions
+function void g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 speed, G_TransitionCurve curve);
+function void g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed, G_TransitionCurve curve);
+function B32 g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time);
+function B32 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time);

@@ -95,3 +95,121 @@ g_mouse_down(G_Input *input, G_MouseButton btn)
 {
   return input->mouse.buttons[btn];
 }
+
+//
+// Transitions
+//
+
+function void
+g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 speed, G_TransitionCurve curve)
+{
+  tr->src = src;
+  tr->dst = dst;
+  tr->speed = speed;
+  tr->curve = curve; 
+  
+  tr->active = 1;
+  tr->t = 0;
+}
+
+function B32
+g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time)
+{
+  B32 finished = 0;
+  
+  tr->t += tr->speed * delta_time;
+  
+  if (tr->active) {
+    F32 clamped_t = Min(tr->t, 1);
+    if (clamped_t >= 1) {
+      tr->active = 0;
+      finished = 1;
+    }
+    
+    F32 eased_t = clamped_t;
+    switch (tr->curve) {
+      case G_TransitionCurve_ExponentialEaseIn: {
+        eased_t = ease_expo_in(clamped_t);
+      }break;
+      case G_TransitionCurve_QuinticEaseInOut: {
+        eased_t = ease_quintic_inout(clamped_t);
+      }break;
+    }
+    
+    *out = lerpf32(tr->src, tr->dst, eased_t);
+  }
+  
+  return finished;
+}
+
+function void
+g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed, G_TransitionCurve curve)
+{
+  tr->src = src;
+  tr->dst = dst;
+  tr->speed = speed;
+  tr->curve = curve;
+  
+  tr->active = 1;
+  tr->t = 0;
+}
+
+// TODO: Should probably set output to exact destination value when finished
+// to avoid fp precision issues
+function B32
+g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time)
+{
+  B32 finished = 0;
+  
+  tr->t += tr->speed * delta_time;
+  
+  if (tr->active) {
+    F32 clamped_t = Min(tr->t, 1);
+    if (clamped_t >= 1) {
+      tr->active = 0;
+      finished = 1;
+    }
+    
+    F32 eased_t = clamped_t;
+    switch (tr->curve) {
+      case G_TransitionCurve_ExponentialEaseIn: {
+        eased_t = ease_expo_in(clamped_t);
+      }break;
+      case G_TransitionCurve_QuinticEaseInOut: {
+        eased_t = ease_quintic_inout(clamped_t);
+      }break;
+    }
+    
+    *out = v2f32_lerp(tr->src, tr->dst, eased_t);
+  }
+  
+  return finished;
+}
+
+//
+// Undo System
+//
+
+function G_UndoContext 
+g_undo_make(void)
+{
+  G_UndoContext undo = {0};
+  
+  Arena *arena = arena_alloc_default();
+  undo.arena = arena;
+  
+  return undo;
+}
+
+function void
+g_undo_release(G_UndoContext *undo)
+{
+  arena_release(undo->arena);
+}
+
+function void 
+g_undo_clear(G_UndoContext *undo)
+{
+  arena_clear(undo->arena);
+  undo->count = 0;
+}
