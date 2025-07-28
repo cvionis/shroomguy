@@ -1,0 +1,172 @@
+//
+// Sound/Mixer Layer Rewrite -- Research
+//
+
+My Current Understanding:
+- There's going to be one portion of the sound layer responsible for 
+  * Determining global playback settings like sample rate and channel count
+  * Creating audio streams (sounds) from file data
+  * Storing a sample buffer and any related state
+  * Mixing sounds with the sample buffer at a given volume
+  * Starting and managing the async audio thread that is constantly reading the 
+    the sample buffer and playing back its contents. 
+  I.e., the "S_Mixer". 
+
+- Then we will probably want a portion of the code that sits above the Mixer
+  and does the following:
+  * Stores a table of named items, each consisting of a sound and any effects
+    (pan, fade, looping etc.) associated with that sound.
+  * Code responsible for changing the current state of the sound; its effects,
+    position, pause state, playback speed, pitch, etc.
+    Ultimately this entry's effects will be used to modify the volume and which sample(s)
+    are used when mixing the entry's underlying sound resource's data with the mixer's sample 
+    buffer.
+
+  * Code responsible for iterating over the entries and calling the lower-level
+    mixer API to mix each entry's sound with the sample buffer, with a volume 
+    (and perhaps pitch) determined by its effects' current state. Small note, this
+    can probably be data parallelized.
+  * An API that allows a named sound to be loaded/added, removed to/from the table; and
+    to be played/paused on a particular channel and to change that sound's effects (i.e. 
+    change the entry's high-level state).
+  I.e., the "S_Player".
+    
+Not sure about the following:
+- How streaming a music file works, and if it's even necessary (i.e. whether to 
+  separate sound effects from music).
+
+Important Miscellaneous Notes:
+- Make s_mix() take a pointer to a buffer to which the result of mixing the provided
+  input sound will be output, and the number of samples to output. It will also need
+  to take a starting position from which to take samples from the sound's buffer. 
+
+- S_Effect's will need both left_volume and right_volume for panning. Example using
+  an interleaved sample buffer like WASAPI:
+    out_samples[0] += left_volume  * sample;  
+    out_samples[1] += right_volume * sample; 
+
+- In each iteration of the main loop, write at least 100msec of samples into the buffer 
+  (or whatever space available, whichever is smaller). This is max amount of time you 
+  expect code will take until the next iteration of loop (frame). If the code takes 
+  more time than the sound takes to finish playing, however, then the sound will 
+  finish playing before the frame is done, and you'll hear a discontinuity as the 
+  buffer will be filled with silence for the remainder of the frame, until more 
+  samples are uploaded to the buffer next frame.
+
+  In short: you want to fill the sample buffer with enough audio so that it lasts
+  the entirety of the frame's other work, in order to prevent the buffer from running
+  out of samples to play before the frame's other work is done, and thereby prevent 
+  the introduction of an audible pause between when samples are fed to the buffer.
+ 
+- Note that giving the buffer *too many* samples every frame will introduce another
+  problem: delay. That is, there will be a noticeable delay or "lag" when playing
+  a sound as the audio thread will still be reading and playing back the data it was 
+  given for the previous sound, since only when it's done playing back the previous sound 
+  can it start playing back the most recent sound.
+
+- Typical buffer size for shared mode audio streams in WASAPI is 480 samples minimum;
+  that is 10ms for a 48khz sample rate. 
+  (48k samples = 1 second; 48k/100 samples = 1/100 second; 480 samples = 10ms)
+
+- Typically you want input audio to be in a 16-bit mono format, as it requires less
+  memory and is easier to process.
+
+Magic Ring Buffer
+- Initial quick notes: I'm assuming this is useful because we can just use an 
+  every-increasing buffer index and have our position within the buffer automatically 
+  loop to the beginning when we write past the end because of how this technique maps 
+  the buffer in virtual memory. Using this virtual memory mapping trick also removes
+  the need to duplicate every write to the other mirrored portion/copy of the buffer;
+  this mirroring happens automatically. Also, it would mean that reading a sequence of
+  bytes from the end of the buffer wouldn't require copying some bytes from the end
+  and some from the beginning into a single buffer to return as a result.
+
+========================================================================================================================
+
+Mixer Operations Outline:
+** Terminology:
+   - sample buffer: our interface to the auto-wrapping magic ring buffer
+   - audio buffer: the buffer managed by the audio backend, into which we copy data from our sample buffer for playback
+
+- Init time: 
+  * Initialize COM
+  * Create a WASAPI audio client
+  * Get buffer info from audio client, create a magic ringbuffer to store samples
+  * Initialize synchronization primitives for audio thread
+  * Kick off the audio thread
+
+- Runtime: 
+  -> Main thread (sample buffer writer)
+     * Load/unload sound data
+     * Gain a lock to the sample buffer's state
+     * Advance our sound's playback positions by the number of samples last submitted to the audio buffer by the 
+       audio thread
+     * Clear the sample buffer at the current sample buffer write position for the number of bytes we will write 
+       this frame
+     * Mix our sounds' samples at their current positions and volumes with the sample buffer
+     * Advance our write position in the sample buffer 
+     * Release the lock to the sample buffer's state
+
+  -> Audio thread (sample buffer reader)
+     * Get a pointer to the output buffer from WASAPI
+     * Gain a lock to the sample buffer's state
+     * Get our current read position in the sample buffer and the number of samples to read from the sample buffer 
+     * Copy that many samples from the mixer's sample buffer to the output buffer, advance our read position in 
+       the sample buffer
+     * Store the number of samples submitted for use by the main thread
+     * Release the lock to the sample buffer's state
+     * Submit the output buffer to WASAPI
+
+- Uninit time:
+  * Stop the audio thread and wait for it to finish running
+  * Deallocate the ring buffer
+  * Uninitialize COM
+
+-- Notes:
+   - The sample buffer, which is just a convenient, linear interface (pointer) to the our current position in the
+     automatically-wrapping ring buffer we allocated, is essentially just a buffer to stage the samples that we will 
+     give to the audio thread for it to write to the output audio buffer. The output audio buffer managed by WASAPI 
+     is not cleared every frame, but is constantly updated new sample data.
+   - I believe a ring buffer is used for the sample buffer rather than a typical buffer that is cleared every frame 
+     before being populated from the beginning because the main thread will be writing to the buffer at one offset 
+     (rbWriteOffset) while the audio thread will be reading data from the sample buffer at an earlier offset (rbReadOffset) 
+     and copying that to the WASAPI output buffer at the same time. In short, we use a ringbuffer and an ever-increasing,
+     looping index instead of overwriting a single fixed buffer because we're essentially using the buffer to queue sample
+     data to be used by the audio thread.
+
+-- Thread synchronization:
+   - There are two places in the code where thread synchronization is needed: 
+     * When accessing the mixer's global state from within the audio thread 
+     * When accessing the mixer's global state in the main thread using the mixer's API
+     In short, synchronization is needed between the main thread's mixer API calls and the audio thread to ensure 
+     atomic access to the mixer's state.
+
+   - There are a few synchronization primitives used in Martins' code:
+     * A win32 event, called `event`. This is initialized to FALSE, and registered with the IAudioClient so that it is
+       signaled when the audio buffer is ready to be processed by the client. The audio thread contains a loop that 
+       runs as long this event is signaled; that is, as long as the audio buffer is ready to be processed. If this event
+       is not signaled, the audio thread is put to sleep (because we check its state with WaitForSingleObject). Within this
+       loop, the sample buffer's contents at the current read position are copied to the WASAPI audio buffer.
+       This event is also signaled in WA_Stop() so that loop can see the value of `stop` and break, allowing the audio
+       thread to return.
+
+     * A LONG value, called `stop`. This is checked to be TRUE at the beginning of each iteration of the audio thread's 
+       audio buffer loop using InterlockedExchange; if it's true, then we break from the audio thread's loop and return from the audio 
+       thread. `stop` is set to TRUE in WA_Stop(). 
+
+     * aALONG value, called `lock`. This is, well, used as a lock to ensure exclusive access to the mixer ("WasapiAudio")
+       state. This is used a mutex-like lock by spinning on the result of InterlockedCompareExchange(), which will set 
+       `lock` to TRUE if the lock is not currently being used (i.e. `lock` is FALSE), and will loop indefinitely until 
+       `lock` is FALSE again, i.e. until another thread calls WA_Unlock() and atomically sets `lock` to FALSE. Note that
+       inside the spinlock we call WaitOnAddress() on `lock`, putting the contending thread to sleep until the value of
+       lock changes to prevent us from wasting cpu cycles in a spinlock.
+
+-- Other details
+   * The audio backend has an internal value called `bufferUsed`. This value stores the number of samples submitted
+     to the WASAPI output buffer within the audio thread. It is copied to a public member called `playCount`, then reset, by 
+     the main thread when WA_LockBuffer() is called. Then the loaded sounds' playback positions can be updated by `playCount` 
+     samples. In short, this value lets us know how many samples from our sounds we were actually able to submit in the audio
+     thread, and therefore how much we should advance our sounds' current positions. 
+     A small note: In my implementation, I would prefer put this in a separate function than s_mixer_lock_buffer(), like 
+     s_mixer_begin_frame(). 
+

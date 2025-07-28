@@ -1,0 +1,106 @@
+/*
+NOTES:
+  * Note that the slots in the box table need to be doubly-linked lists so that boxes that are no longer 
+    being used/created can be "pruned".
+
+  * Note that 'pref' sizes in the DG codebase are equivalent to 'semantic' sizes discussed in Ryan's articles.
+
+  * RJF wraps accesses to global contexts' members in a macro; e.g. UI_Window()
+    instead of something like ui__ctx.window. This produces much nicer looking code,
+    in my opinion. 
+
+  * Questions that need answers:
+    Q: How is the box tree cleared every frame while the hash table is still maintained?
+    A: There is a frame arena that is cleared at the beginning of every frame, and a persistent arena.
+    Q: When are relative/absolute positions of boxes calculated? I know that their absolute positions 
+       aren't specified in builder code, and that their positions can be further changed by providing 
+       spacing between them.
+    A: See the procedure starting at L981 in R:/Forks/digital_grove/code/ui/ui_core.c (in the function
+       UI_SolveSizeViolations()). First the relative positions for each child is calculated using 
+       computed (final) sizes in an initial pass over the children; then relative rects and final rects 
+       in a second pass. 
+
+  * It seems that the UI_Box tree is rebuilt every frame, and that persistent box data is cached
+    in the hash table. 
+
+  * PushParent is called by core code only when creating the root box, i.e. the box that everything is 
+    contained in by default. Thus, by default, all boxes created will simply be added to the list of children
+    under that parent, forming a simple doubly-linked list under the root box.
+
+    When building more complex widgets, such as one that consists of nested boxes, 
+    the function that builds this widget can call PushParent to set the current parent to one of those children. 
+    A pointer to the new current parent can be retrieved from the parent stack using UI_TopParent(), and boxes
+    created from that point on will form a doubly-linked list under that parent node, until that parent is popped
+    off the parent stack.
+
+  * How are sizes specified? It seems that, along with styling info, there is a "preferred semantic size"
+    stack that is maintained. When a box is created, it simply uses the preferred semantic size at the top of the stack.
+
+    Then, I'm guessing, the entire tree is traversed recursively and these semantic sizes are converted into 
+    absolute sizes in pixels.
+
+  * What about positions? I'm guessing that these are calculated similarly to sizes; for positions, we probably start 
+    at the root box, whose rect x,y we know (same as the application window dimensions), and calculate relative positions,
+    and ultimately absolute positions, as we go down the hierarchy.
+
+  * What is this "first_free_X" pattern Ryan employs so often? It seems that `first_free_X` is a stack onto which
+    items removed from lists are pushed; maybe it's a way to reuse existing memory for linked list nodes?
+
+  * My current understanding of what happens is this:
+
+    -> Clear the current UI_Box tree.
+
+    -> Create a new root UI_Box the same size as the application window.
+       Push that to the parent stack as the current parent. All subsequent
+       boxes created with UI_BoxMake will be appended to the doubly-linked list
+       under this parent, until another box is pushed as the parent.
+
+    -> A series of UI_BoxMake() and UI_PushParent()/UI_PopParent() calls build the box tree, which could 
+       consist of a single level or several depending on how many parents are pushed to the parent stack.
+
+       UI_BoxMake():
+
+       Step 1, hash table:
+         Uses the string supplied and a seed to obtain a hash key. 
+         It retrieves a UI_Box from the persistent UI_Box hash table using the key; if the box doesn't
+         exist yet, it creates one and adds it to the table. 
+       Step2, tree:
+         The box obtained in the first step is added to the box tree, by retrieving the current parent
+         (UI_TopParent()) and appending the box to the current parent's list of children.
+
+       Step 3, fill state:
+         If the box obtained in the first step is a new box (it didn't already exist in the hash table
+         in step 1), fill its state using the supplied box flags, text, and the values at the top of 
+         the style stack(s). Else, get its state from the hash table (?).
+
+   -> End the building process (pop the root parent).
+
+   -> Iterate over the tree we constructed in a *layout* pass for each axis:
+        root_function void
+        UI_LayoutRoot(UI_Box *root, Axis2 axis)
+        {
+         UI_SolveIndependentSizes(root, axis);
+         UI_SolveUpwardDependentSizes(root, axis);
+         UI_SolveDownwardDependentSizes(root, axis);
+         UI_SolveSizeViolations(root, axis);
+        }
+
+   -> Iterate over the tree we constructed in an *animation* pass, in which we 
+      visit each box in the hierarchy and update its animation transition values.
+
+  * Application usage of RJF's UI code roughly follows this order: 
+
+      UI_BeginFrame(); // Update state like cursor blink animation 
+      UI_BeginBuild(); // Reset frame arena, clearing per-frame state like the box tree; prune stale boxes from box table. 
+                       // Reset the hot, active boxes (tracked using box keys). Build the root and push it to the parent stack.
+
+      ... a sequence of UI_BoxMake()'s called by higher-level widgets or builder code, and pushes to the various
+          stacks that change the state and order of boxes ...
+
+      UI_Layout();     // Iterate over the tree constructed by builder code, calculating sizes and positions (rects) for rendering.
+      UI_Animate(dt);  // Advance animation state for each box in the tree constructed by builder code.
+      UI_EndBuild();   // Pop the root from the parent stack, and set the cursor depending on which box is hot. 
+      UI_EndFrame();   // Does nothing so far
+
+*/
+
