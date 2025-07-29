@@ -24,7 +24,18 @@
 - Maybe the heavy hazard blocks/boulders can partially or completely break a block when 
 	dropped on it. Perhaps you can introduce different sizes/weights for these that 
 	either destroy the block they fall on a different amount or destroy a different number
-	of blocks underneath.
+	of blocks underneath. Can be used to crush enemies as well.
+
+	This would allow the player to be able to strategize how to save picaxe durability
+	by letting these rocks fall onto ores, destroying them in fewer picaxe moves.
+
+- Maybe enemies should be attacked when the player moves to their tile, with different
+	enemy types having differing number of lives. Only when the player is out of picaxe
+	durability, and when falling on or jumping to an enemy, does he die on moving to an
+	enemy tile.
+
+- With these enemy variants and new mechanics, consider removing the need to place
+  ladders/steps and to return to starting point to beat a level after collecting ores.
 
 --- 
 
