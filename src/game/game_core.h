@@ -147,6 +147,7 @@ struct G_TileMap {
 struct G_Level {
   G_TileMap *map;
   G_Entity player;
+  U32 ore_count;
   // ... Enemies
 };
 

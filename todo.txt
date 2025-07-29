@@ -3,17 +3,22 @@
 - Rework animations a bit to be a little more independent of the asset context
 	(they should just deal with individual spritesheet assets)
 
+- Sensible scaling across window resizing
+
+- 2D lighting
+
 - Formalizing custom post-process passes/shaders in the render layer; will need that
 	for darkening the player's environment and for cool crt or lighting effects.
 
-- Sensible scaling across window resizing
-
 --- 
 
-- Undo and reset
+[X] Undo and reset
+[ ] Energy/picaxe meter
+[ ] Material collection meter/indicator
+[ ] Hazard/falling tiles and enemy tiles
+[ ] Rope/ladders/steps 
+[ ] Lava blocks
 
-- Hazard/falling tiles and enemy tiles
+[ ] Cleanup pass
 
-- Rope/ladders/steps 
-
-- Particles when mining/destroying block
+[ ] Particles when mining/destroying block
