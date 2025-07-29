@@ -18,15 +18,25 @@
 
 - Enemies should be able to fall into lava and die just like the player.
 
+- Maybe a separate type of enemy (e.g. bats) floats/flies and does not fall when the
+  block underneath it is mined.
+
+- Maybe the heavy hazard blocks/boulders can partially or completely break a block when 
+	dropped on it. Perhaps you can introduce different sizes/weights for these that 
+	either destroy the block they fall on a different amount or destroy a different number
+	of blocks underneath.
+
 --- 
 
 [X] Undo and reset
 [X] Energy/picaxe meter
 [X] Material collection meter/indicator
-[ ] Hazard/falling tiles and enemy tiles
+[ ] Enemy tiles and simulating enemy entities
+[ ] Hazard/falling tiles 
 [ ] Rope/ladders/steps 
 [ ] Lava blocks
 
+[ ] Undo seems a little buggy/inconsistent; invesigate.
 [ ] Cleanup pass
 
 [ ] Particles when mining/destroying block
