@@ -126,10 +126,9 @@ enum G_TileToken {
   G_TileToken_OreT0    = (1 << 4),
   G_TileToken_OreT1    = (1 << 5),
   G_TileToken_OreT2    = (1 << 6),
-  G_TileToken_Blocking = (1 << 7),
-  G_TileToken_Hazard   = (1 << 8),
-  G_TileToken_Enemy    = (1 << 9),
-  G_TileToken_Player   = (1 << 10),
+  G_TileToken_Hazard   = (1 << 7),
+  G_TileToken_Enemy    = (1 << 8),
+  G_TileToken_Player   = (1 << 9),
 };
 
 enum G_TileMapFlags {

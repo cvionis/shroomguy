@@ -10,11 +10,19 @@
 - Formalizing custom post-process passes/shaders in the render layer; will need that
 	for darkening the player's environment and for cool crt or lighting effects.
 
+- Pushable blocks to help solve level 
+
+- Forget hazard blocks that kill you just make enemies drop when you mine underneath them.
+  Can make hazard/blocking blocks that fall but just block your way when you mine 
+	underneath them.
+
+- Enemies should be able to fall into lava and die just like the player.
+
 --- 
 
 [X] Undo and reset
-[ ] Energy/picaxe meter
-[ ] Material collection meter/indicator
+[X] Energy/picaxe meter
+[X] Material collection meter/indicator
 [ ] Hazard/falling tiles and enemy tiles
 [ ] Rope/ladders/steps 
 [ ] Lava blocks

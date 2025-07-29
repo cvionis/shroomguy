@@ -31,8 +31,8 @@ struct GameState {
   G_AssetContext *assets;
   G_Level level;
   G_Input input;
-  
   G_MineState mine;
+  B32 lost;
 };
 
 global GameState game;
@@ -155,9 +155,6 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_Hazard: {
         sprite = g_assets_get_sprite(assets, S8("sprites/hazard.png"));
       }break;
-      case G_TileToken_Blocking: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/blocking.png"));
-      }break;
       case G_TileToken_Enemy: {
         sprite = g_assets_get_sprite(assets, S8("sprites/enemy.png"));
       }break;
@@ -181,12 +178,18 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 }
 
 struct G_LevelSimResult {
-  B32 lose;
+  B32 lost;
 };
 
-function void
+struct G_MoveResult {
+  G_TileToken dst_token;
+};
+
+function G_MoveResult
 g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy)
 {
+  G_MoveResult result = {0};
+  
   B32 entity_moving = entity->move.active;
   if (!entity_moving) {
     G_TileMap *map = level->map;
@@ -211,8 +214,7 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy)
       G_TileToken dst_tile = map->tokens[dst_idx];
       G_TileToken ent_tile = map->tokens[ent_idx];
       
-      B32 dst_non_blocking = (dst_tile & G_TileToken_Empty);
-      if (dst_non_blocking) {
+      if (dst_tile & G_TileToken_Empty) {
         F32 pos_transition_speed = 5.15f;
         G_TransitionCurve pos_transition_curve = G_TransitionCurve_ExponentialEaseIn;
         // Use a different curve when jumping and falling.
@@ -226,8 +228,12 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy)
         map->tokens[ent_idx] = src_tile;
         map->tokens[dst_idx] = ent_tile;
       }
+      
+      result.dst_token = dst_tile;
     }
   }
+  
+  return result;
 }
 
 function void
@@ -312,12 +318,16 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   
   G_Entity *player = &level->player;
   G_TileMap *map = level->map;
+  
   // Player movement and gravity
   if (dx || dy) {
     g_undo_push(undo, map);
     g_entity_mine(player, level, mine, dx, dy);
     //dy = 0; // @Note: Temporary. To prevent jumping when mining upwards.
-    g_entity_move(player, level, dx, dy);
+    G_MoveResult move = g_entity_move(player, level, dx, dy);
+    if (move.dst_token == G_TileToken_Enemy) {
+      result.lost = 1;
+    }
   }
   g_entity_move(player, level, 0, 1); 
   // Animate player movement
@@ -360,6 +370,8 @@ update(void)
     game.mine.v = Min(game.mine.v, game.mine.max);
     game.mine.ore_collected -= 1;
     game.mine.ore_collected = Max(game.mine.ore_collected, 0);
+    
+    game.lost = 0;
   }
   else if (g_key_pressed(&game.input, G_Key_R)) {
     G_TileMap *map = game.level.map;
@@ -368,9 +380,16 @@ update(void)
     
     game.mine.v = game.mine.max;
     game.mine.ore_collected = 0;
+    
+    game.lost = 0;
   }
   
-  g_simulate_level(&game.level, &game.undo, &game.input, &game.mine, delta_time);
+  if (!game.lost) {
+    G_LevelSimResult sim = g_simulate_level(&game.level, &game.undo, &game.input, &game.mine, delta_time);
+    if (sim.lost) {
+      game.lost = 1;
+    }
+  }
 }
 
 function void 
@@ -387,7 +406,7 @@ render(void)
   {
     g_render_level(renderer, assets, &game.level);
     
-    V4F32 col = v4f32(0.6f,0.566f,0.6f,1.f);
+    V4F32 col = v4f32(0.6f,0.526f,0.622f,1.f);
     
     F32 picaxe_bar_width = 128;
     F32 picaxe_bar_height = 32;
@@ -431,6 +450,11 @@ render(void)
       
       arena_temp_end(tmp);
     }
+    
+    if (game.lost) {
+      r_text(renderer, S8("YOU LOST! Press Z to undo or R to restart."), 
+             game.font, 32, v2f32(500, 128), v4f32(0.6f,0.4f,0.4f,1.f), 0);
+    }
   }
   
   r_flush(renderer);
@@ -458,7 +482,7 @@ entry_point(void)
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_Enemy,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
   };
