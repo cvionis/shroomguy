@@ -1,7 +1,7 @@
 - Add ability to flip a texture (or quad?) in either axis when drawing it
 
-- Rework animations a bit to be a little more independent of the asset context
-	(they should just deal with individual spritesheet assets)
+- Rework animations a bit to be a little more independent of (less directly tied to) 
+	the asset context (they should just deal with individual spritesheet assets)
 
 - Sensible scaling across window resizing
 
@@ -24,7 +24,7 @@
 - Maybe the heavy hazard blocks/boulders can partially or completely break a block when 
 	dropped on it. Perhaps you can introduce different sizes/weights for these that 
 	either destroy the block they fall on a different amount or destroy a different number
-	of blocks underneath. Can be used to crush enemies as well.
+	of blocks underneath. These boulders can be used to crush enemies as well.
 
 	This would allow the player to be able to strategize how to save picaxe durability
 	by letting these rocks fall onto ores, destroying them in fewer picaxe moves.
@@ -42,12 +42,23 @@
 [X] Undo and reset
 [X] Energy/picaxe meter
 [X] Material collection meter/indicator
-[ ] Enemy tiles and simulating enemy entities
-[ ] Hazard/falling tiles 
-[ ] Rope/ladders/steps 
+[X] Enemy tiles and simulating enemy entities
+[ ] Boulders/hazard tiles that block movement, fall, and crush
+		- Smaller ones can be pushed and only take 1 point of block below.
+		- Larger ones cannot be pushed (block player movement) but can be dug
+			underneath; does not kill player when dropping on his head. Takes 3 points from
+			block below.
+[ ] Flying/stationary enemies
 [ ] Lava blocks
+[ ] Lighting
+[ ] Ladders/steps that exist as part of level, not manually placed. Maybe they can
+    be destroyed by boulders.
 
-[ ] Undo seems a little buggy/inconsistent; invesigate.
+[ ] Experimenting with being able to attack enemies from the side
+
+[ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
+	  meter without restoring level).
 [ ] Cleanup pass
+
 
 [ ] Particles when mining/destroying block

@@ -120,17 +120,18 @@ struct G_Entity {
 enum G_TileToken {
   G_TileToken_Null,
   
-  G_TileToken_Empty    = (1 << 0),
-  G_TileToken_Dirt     = (1 << 1),
-  G_TileToken_StoneT0  = (1 << 2),
-  G_TileToken_StoneT1  = (1 << 3),
-  G_TileToken_OreT0    = (1 << 4),
-  G_TileToken_OreT1    = (1 << 5),
-  G_TileToken_OreT2    = (1 << 6),
-  G_TileToken_Hazard   = (1 << 7),
-  G_TileToken_GroundEnemy = (1 << 8),
-  G_TileToken_FlyingEnemy = (1 << 9),
-  G_TileToken_Player      = (1 << 10),
+  G_TileToken_Empty        = (1 << 0),
+  G_TileToken_Dirt         = (1 << 1),
+  G_TileToken_StoneT0      = (1 << 2),
+  G_TileToken_StoneT1      = (1 << 3),
+  G_TileToken_OreT0        = (1 << 4),
+  G_TileToken_OreT1        = (1 << 5),
+  G_TileToken_OreT2        = (1 << 6),
+  G_TileToken_BoulderSmall = (1 << 7),
+  G_TileToken_BoulderLarge = (1 << 8),
+  G_TileToken_EnemyGround  = (1 << 9),
+  G_TileToken_EnemyAir     = (1 << 10),
+  G_TileToken_Player       = (1 << 11),
 };
 
 enum G_TileMapFlags {

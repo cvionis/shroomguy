@@ -81,7 +81,7 @@ g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
     F32 py = (F32)(token_idx / map_width);
     
     G_TileToken t = tokens[token_idx];
-    if (t & G_TileToken_GroundEnemy) {
+    if (t & G_TileToken_EnemyGround) {
       G_Entity *ent = enemies + enemies_count;
       ent->pos = v2f32(px, py);
       enemies_count += 1;
@@ -188,11 +188,17 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_OreT2: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
       }break;
-      case G_TileToken_Hazard: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/hazard.png"));
+      case G_TileToken_BoulderSmall: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_small.png"));
       }break;
-      case G_TileToken_GroundEnemy: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/enemy.png"));
+      case G_TileToken_BoulderLarge: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_large.png"));
+      }break;
+      case G_TileToken_EnemyGround: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/enemy_ground.png"));
+      }break;
+      case G_TileToken_EnemyAir: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/enemy_air.png"));
       }break;
     }
     
@@ -332,7 +338,7 @@ g_entity_do_gravity(G_Entity *entity, G_Level *level)
 {
   S32 gravity_dx = 0;
   S32 gravity_dy = 1;
-  G_MoveTransition gravity_tr = { 6.55f, G_TransitionCurve_QuinticEaseInOut };
+  G_MoveTransition gravity_tr = { 10.1f, G_TransitionCurve_Linear };
   G_MoveResult result = g_entity_move(entity, level, gravity_dx, gravity_dy, gravity_tr );
   return result;
 }
@@ -345,10 +351,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   S32 dx = 0;
   S32 dy = 0;
   
-  // @Todo: Gravity for entities should probably be done by adding dy instead of 
-  // adding special logic in g_entity_move.
-  
-  // @Note: This only allows movement in one of two axes; don't want diagonal movement. 
   dy +=       (g_key_pressed(input, G_Key_S) || g_key_pressed(input, G_Key_Down));
   dy -=       (g_key_pressed(input, G_Key_W) || g_key_pressed(input, G_Key_Up));
   dx -= !dy * (g_key_pressed(input, G_Key_A) || g_key_pressed(input, G_Key_Left));
@@ -357,11 +359,11 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   dx = Clamp(dx, -1, 1);
   dy = Clamp(dy, -1, 1);
   
-  // @Note: Maybe you can create a function that returns the data calculated in the // beginning of used by both _mine() and _move().
+  // @Note: Maybe you can create a function that returns the data calculated in the beginning of used by both _mine() and _move(), that can then be passed to both.
   
   G_TileMap *map = level->map;
   
-  // Player mining, movement, gravity, animation
+  // Player: mining, movement, gravity, animation
   G_Entity *player = &level->player;
   if (dx || dy) {
     g_undo_push(undo, map);
@@ -369,26 +371,34 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     g_entity_mine(player, level, mine, dx, dy);
     
     G_MoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
-    G_MoveResult move = g_entity_move(player, level, dx, dy, tr);
-    if (move.dst_token == G_TileToken_GroundEnemy) {
+    G_MoveResult move_result = g_entity_move(player, level, dx, 0, tr);
+    
+    B32 enemy_contact = 
+    (move_result.dst_token == G_TileToken_EnemyGround) || (move_result.dst_token == G_TileToken_EnemyAir);
+    if (enemy_contact) {
       result.lost = 1; // @Note: Temporary behavior.
     }
   }
   g_entity_do_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
-  // Ground enemies gravity, animation
+  // Ground enemies: gravity, animation, player interaction
   U32 ground_enemies_count = level->ground_enemies_count;
   G_Entity *ground_enemies = level->ground_enemies;
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    G_MoveResult move = g_entity_do_gravity(enemy, level);
-    if (move.dst_token == G_TileToken_Player) {
-      // @Todo: Wait until animation is done.
-      //result.lost = 1;
-    }
+    // @Todo: Determine why enemy falling looks instantaneous
+    G_MoveResult move_result = g_entity_do_gravity(enemy, level);
     g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
+    
+    B32 enemy_sitting_on_player = (player->pos.y - enemy->pos.y <= 1.2f) &&
+    (absf32(player->pos.x - enemy->pos.x) <= 0.05f);
+    
+    if ((move_result.dst_token & G_TileToken_Player) && enemy_sitting_on_player) {
+      result.lost = 1;
+      break;
+    }
   }
   
   return result;
@@ -468,12 +478,16 @@ render(void)
     
     V4F32 col = v4f32(0.6f,0.526f,0.622f,1.f);
     
-    F32 picaxe_bar_width = 128;
-    F32 picaxe_bar_height = 32;
+    F32 picaxe_bar_w = 128;
+    F32 picaxe_bar_h = 32;
+    
+    F32 picaxe_bar_x = 700;
+    F32 picaxe_bar_y = 40;
     
     {
       R_Quad quad = {0};
-      quad.rect = rect_f32(500, 40, 500 + picaxe_bar_width, 40 + picaxe_bar_height);
+      quad.rect = 
+        rect_f32(picaxe_bar_x, picaxe_bar_y, picaxe_bar_x+picaxe_bar_w, picaxe_bar_y+picaxe_bar_h);
       quad.colors[0] = col;
       quad.colors[1] = col;
       quad.colors[2] = col;
@@ -486,8 +500,8 @@ render(void)
     
     {
       R_Quad quad = {0};
-      F32 width = picaxe_bar_width * ((F32)game.mine.v/(F32)game.mine.max);
-      quad.rect = rect_f32(500, 40, 500 + width, 40 + picaxe_bar_height);
+      F32 w = picaxe_bar_w * ((F32)game.mine.v/(F32)game.mine.max);
+      quad.rect = rect_f32(picaxe_bar_x, picaxe_bar_y, picaxe_bar_x+w, picaxe_bar_y+picaxe_bar_h);
       quad.colors[0] = col;
       quad.colors[1] = col;
       quad.colors[2] = col;
@@ -500,20 +514,20 @@ render(void)
     {
       TempArena tmp = arena_temp_begin(game.arena);
       
-      r_text(renderer, S8("Picaxe: "), game.font, 32, v2f32(500,0), col, 0);
+      r_text(renderer, S8("Picaxe: "), game.font, 32, v2f32(picaxe_bar_x,0), col, 0);
       
       U32 ore_collected = game.mine.ore_collected;
       U32 ore_count = game.level.ore_count;
       
       String8 ore_progress_str = str8_pushf(tmp.arena, "Ores: %d/%d", ore_collected, ore_count);
-      r_text(renderer, ore_progress_str, game.font, 32, v2f32(500, 92), col, 0);
+      r_text(renderer, ore_progress_str, game.font, 32, v2f32(picaxe_bar_x, 92), col, 0);
       
       arena_temp_end(tmp);
     }
     
     if (game.lost) {
       r_text(renderer, S8("YOU LOST! Press Z to undo or R to restart."), 
-             game.font, 32, v2f32(500, 128), v4f32(0.6f,0.4f,0.4f,1.f), 0);
+             game.font, 32, v2f32(picaxe_bar_x, 128), v4f32(0.6f,0.4f,0.4f,1.f), 0);
     }
   }
   
@@ -538,12 +552,22 @@ entry_point(void)
   
   // Temp init
   G_TileMap map = {0};
+#if 0
   G_TileToken tokens[] = {
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_GroundEnemy,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_EnemyGround,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+  };
+#endif
+  G_TileToken tokens[] = {
+    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_BoulderSmall,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,
+    G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
   };
   map.width = 6;

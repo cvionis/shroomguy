@@ -154,7 +154,7 @@ g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed,
   tr->t = 0;
 }
 
-// TODO: Should probably set output to exact destination value when finished
+// @Todo: Should probably set output to exact destination value when finished
 // to avoid fp precision issues
 function B32
 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time)
