@@ -1,0 +1,6 @@
+Post-processing passes will all share the same vertex attributes and vertex shader --
+they just draw a full-screen quad.
+
+Each post-process pass differs in 
+- fragment shader executed per pixel of the full-screen quad
+- inputs passed to the post-process shader

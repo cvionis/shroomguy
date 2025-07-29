@@ -213,3 +213,49 @@ g_undo_clear(G_UndoContext *undo)
   arena_clear(undo->arena);
   undo->count = 0;
 }
+
+function void 
+g_undo_push(G_UndoContext *undo, G_TileMap *map)
+{
+  G_UndoNode *n = undo->free;
+  SLLStackPopN(undo->free, free_next);
+  if (!n) {
+    n = ArenaPushStruct(undo->arena, G_UndoNode);
+  }
+  
+  U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+  MemoryCopy(n->tokens, map->tokens, tiles_size);
+  
+  SLLQueuePushFrontN(undo->first, undo->last, n, stack_next);
+  undo->count += 1;
+}
+
+function void
+g_undo_pop(G_UndoContext *undo, G_TileMap *map)
+{
+  G_UndoNode *n = undo->first;
+  if (n) {
+    if (map) {
+      U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+      MemoryCopy(map->tokens, n->tokens, tiles_size);
+      
+      SLLQueuePopN(undo->first, undo->last, stack_next);
+      SLLStackPushN(undo->free, n, free_next);
+      undo->count -= 1;
+    }
+  }
+}
+
+function void
+g_undo_restart(G_UndoContext *undo, G_TileMap *map)
+{
+  G_UndoNode *n = undo->last;
+  if (n) {
+    if (map) {
+      U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+      MemoryCopy(map->tokens, n->tokens, tiles_size);
+      
+      undo->count = 0;
+    }
+  }
+}

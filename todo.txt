@@ -1,0 +1,19 @@
+- Add ability to flip a texture (or quad?) in either axis when drawing it
+
+- Rework animations a bit to be a little more independent of the asset context
+	(they should just deal with individual spritesheet assets)
+
+- Formalizing custom post-process passes/shaders in the render layer; will need that
+	for darkening the player's environment and for cool crt or lighting effects.
+
+- Sensible scaling across window resizing
+
+--- 
+
+- Undo and reset
+
+- Hazard/falling tiles and enemy tiles
+
+- Rope/ladders/steps 
+
+- Particles when mining/destroying block

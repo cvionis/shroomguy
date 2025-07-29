@@ -103,17 +103,51 @@ struct G_TransitionV2F32 {
 };
 
 //
-// Tiles
+// Entities
 //
 
+struct G_Entity {
+  V2F32 pos; // @Note: Unscaled
+  G_TransitionV2F32 move;
+};
+
+//
+// Tiles & Tilemaps
+//
+
+// @Todo: Stages of stone and ore as they take several actions to mine
 enum G_TileToken {
-  G_TileToken_Empty  = (0 << 0),
-  G_TileToken_Dirt   = (1 << 0),
-  G_TileToken_Stone  = (1 << 1),
-  G_TileToken_Ore    = (1 << 2),
-  G_TileToken_Hazard = (1 << 3),
-  G_TileToken_Enemy  = (1 << 4),
-  G_TileToken_Player = (1 << 5),
+  G_TileToken_Null,
+  
+  G_TileToken_Empty    = (1 << 0),
+  G_TileToken_Dirt     = (1 << 1),
+  G_TileToken_StoneT0  = (1 << 2),
+  G_TileToken_StoneT1  = (1 << 3),
+  G_TileToken_OreT0    = (1 << 4),
+  G_TileToken_OreT1    = (1 << 5),
+  G_TileToken_OreT2    = (1 << 6),
+  G_TileToken_Blocking = (1 << 7),
+  G_TileToken_Hazard   = (1 << 8),
+  G_TileToken_Enemy    = (1 << 9),
+  G_TileToken_Player   = (1 << 10),
+};
+
+enum G_TileMapFlags {
+  G_TileMapFlag_Unlocked  = (1 << 0),
+  G_TileMapFlag_Completed = (1 << 1),
+};
+
+struct G_TileMap {
+  U32 width;
+  U32 height;
+  G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
+  G_TileMapFlags flags;
+};
+
+struct G_Level {
+  G_TileMap *map;
+  G_Entity player;
+  // ... Enemies
 };
 
 //
@@ -137,10 +171,6 @@ struct G_UndoContext {
   G_UndoNode *free;
 };
 
-//
-// Gameplay API
-//
-
 // Input
 function void g_get_input(OS_Handle window, G_Input *input, OS_EventList *events);
 function B32 g_key_pressed(G_Input *input, G_Key key);
@@ -152,6 +182,10 @@ function B32 g_mouse_down(G_Input *input, G_MouseButton btn);
 function G_UndoContext g_undo_make(void);
 function void g_undo_release(G_UndoContext *undo);
 function void g_undo_clear(G_UndoContext *undo);
+
+function void g_tilemap_undo_push(G_TileMap *map);
+function void g_tilemap_undo_pop(G_TileMap *map);
+function void g_tilemap_undo_restart(G_TileMap *map);
 
 // Transitions
 function void g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 speed, G_TransitionCurve curve);
