@@ -5,6 +5,7 @@
 //
 
 #define G_TILEMAP_TOKENS_MAX 256
+#define G_LEVEL_GROUND_ENEMIES_MAX 32
 
 //
 // Input
@@ -127,8 +128,9 @@ enum G_TileToken {
   G_TileToken_OreT1    = (1 << 5),
   G_TileToken_OreT2    = (1 << 6),
   G_TileToken_Hazard   = (1 << 7),
-  G_TileToken_Enemy    = (1 << 8),
-  G_TileToken_Player   = (1 << 9),
+  G_TileToken_GroundEnemy = (1 << 8),
+  G_TileToken_FlyingEnemy = (1 << 9),
+  G_TileToken_Player      = (1 << 10),
 };
 
 enum G_TileMapFlags {
@@ -147,7 +149,9 @@ struct G_Level {
   G_TileMap *map;
   G_Entity player;
   U32 ore_count;
-  // ... Enemies
+  
+  G_Entity ground_enemies[G_LEVEL_GROUND_ENEMIES_MAX];
+  U32 ground_enemies_count;
 };
 
 //

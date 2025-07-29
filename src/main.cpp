@@ -49,13 +49,13 @@ g_player_from_tilemap(G_TileMap *map)
   U32 map_height = map->height;
   U32 token_count = map_width * map_height;
   
+  // @Note: This function assumes the level will only have one player.
+  // This should be checked when reading a tilemap from disk, not here.
   for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     F32 px = (F32)(token_idx % map_width);
     F32 py = (F32)(token_idx / map_width);
     
     G_TileToken t = tokens[token_idx];
-    // @Note: This function assumes the level will only have one player.
-    // This should be checked when reading a tilemap from disk, not here.
     if (t & G_TileToken_Player) {
       player.pos = v2f32(px, py);
     }
@@ -64,13 +64,39 @@ g_player_from_tilemap(G_TileMap *map)
   return player;
 }
 
-function G_Level
-g_level_from_tilemap(G_TileMap *map) 
+function U32
+g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
 {
-  G_Level level = {0};
+  G_TileToken *tokens = map->tokens;
+  U32 map_width = map->width;
+  U32 map_height = map->height;
+  U32 token_count = map_width * map_height;
   
+  U32 enemies_count = 0;
+  
+  // @Note: This function assumes the level will have <= G_LEVEL_GROUND_ENEMIES_MAX
+  // ground enemies. This should be checked when reading a tilemap from disk, not here.
+  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+    F32 px = (F32)(token_idx % map_width);
+    F32 py = (F32)(token_idx / map_width);
+    
+    G_TileToken t = tokens[token_idx];
+    if (t & G_TileToken_GroundEnemy) {
+      G_Entity *ent = enemies + enemies_count;
+      ent->pos = v2f32(px, py);
+      enemies_count += 1;
+    }
+  }
+  
+  return enemies_count;
+}
+
+function U32
+g_ore_count_from_tilemap(G_TileMap *map)
+{
   G_TileToken *tokens = map->tokens;
   U32 token_count = map->width * map->height;
+  
   U32 ore_count = 0;
   
   for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
@@ -80,8 +106,18 @@ g_level_from_tilemap(G_TileMap *map)
     }
   }
   
-  level.ore_count = ore_count;
+  return ore_count;
+}
+
+function G_Level
+g_level_from_tilemap(G_TileMap *map) 
+{
+  G_Level level = {0};
+  
+  level.ore_count = g_ore_count_from_tilemap(map);
   level.player = g_player_from_tilemap(map);
+  level.ground_enemies_count = g_ground_enemies_from_tilemap(level.ground_enemies, map);
+  
   return level;
 }
 
@@ -155,7 +191,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_Hazard: {
         sprite = g_assets_get_sprite(assets, S8("sprites/hazard.png"));
       }break;
-      case G_TileToken_Enemy: {
+      case G_TileToken_GroundEnemy: {
         sprite = g_assets_get_sprite(assets, S8("sprites/enemy.png"));
       }break;
     }
@@ -185,8 +221,13 @@ struct G_MoveResult {
   G_TileToken dst_token;
 };
 
+struct G_MoveTransition {
+  F32 speed;
+  G_TransitionCurve curve;
+};
+
 function G_MoveResult
-g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy)
+g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_MoveTransition move_transition)
 {
   G_MoveResult result = {0};
   
@@ -215,16 +256,8 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy)
       G_TileToken ent_tile = map->tokens[ent_idx];
       
       if (dst_tile & G_TileToken_Empty) {
-        F32 pos_transition_speed = 5.15f;
-        G_TransitionCurve pos_transition_curve = G_TransitionCurve_ExponentialEaseIn;
-        // Use a different curve when jumping and falling.
-        if (dy) {
-          pos_transition_speed = 7.25f;
-          pos_transition_curve = G_TransitionCurve_QuinticEaseInOut;
-        }
-        
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
-                                 pos_transition_speed, pos_transition_curve);
+                                 move_transition.speed, move_transition.curve);
         map->tokens[ent_idx] = src_tile;
         map->tokens[dst_idx] = ent_tile;
       }
@@ -294,6 +327,16 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
   }
 }
 
+function G_MoveResult
+g_entity_do_gravity(G_Entity *entity, G_Level *level)
+{
+  S32 gravity_dx = 0;
+  S32 gravity_dy = 1;
+  G_MoveTransition gravity_tr = { 6.55f, G_TransitionCurve_QuinticEaseInOut };
+  G_MoveResult result = g_entity_move(entity, level, gravity_dx, gravity_dy, gravity_tr );
+  return result;
+}
+
 function G_LevelSimResult
 g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time)
 {
@@ -316,22 +359,37 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   
   // @Note: Maybe you can create a function that returns the data calculated in the // beginning of used by both _mine() and _move().
   
-  G_Entity *player = &level->player;
   G_TileMap *map = level->map;
   
-  // Player movement and gravity
+  // Player mining, movement, gravity, animation
+  G_Entity *player = &level->player;
   if (dx || dy) {
     g_undo_push(undo, map);
+    
     g_entity_mine(player, level, mine, dx, dy);
-    //dy = 0; // @Note: Temporary. To prevent jumping when mining upwards.
-    G_MoveResult move = g_entity_move(player, level, dx, dy);
-    if (move.dst_token == G_TileToken_Enemy) {
-      result.lost = 1;
+    
+    G_MoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
+    G_MoveResult move = g_entity_move(player, level, dx, dy, tr);
+    if (move.dst_token == G_TileToken_GroundEnemy) {
+      result.lost = 1; // @Note: Temporary behavior.
     }
   }
-  g_entity_move(player, level, 0, 1); 
-  // Animate player movement
+  g_entity_do_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
+  
+  // Ground enemies gravity, animation
+  U32 ground_enemies_count = level->ground_enemies_count;
+  G_Entity *ground_enemies = level->ground_enemies;
+  for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
+    G_Entity *enemy = &ground_enemies[enemy_idx];
+    
+    G_MoveResult move = g_entity_do_gravity(enemy, level);
+    if (move.dst_token == G_TileToken_Player) {
+      // @Todo: Wait until animation is done.
+      //result.lost = 1;
+    }
+    g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
+  }
   
   return result;
 }
@@ -365,6 +423,7 @@ update(void)
     G_TileMap *map = game.level.map;
     g_undo_pop(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
+    game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
     
     game.mine.v += 1;
     game.mine.v = Min(game.mine.v, game.mine.max);
@@ -377,6 +436,7 @@ update(void)
     G_TileMap *map = game.level.map;
     g_undo_restart(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
+    game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
     
     game.mine.v = game.mine.max;
     game.mine.ore_collected = 0;
@@ -445,7 +505,7 @@ render(void)
       U32 ore_collected = game.mine.ore_collected;
       U32 ore_count = game.level.ore_count;
       
-      String8 ore_progress_str = str8_pushf(tmp.arena, "Gold: %d/%d", ore_collected, ore_count);
+      String8 ore_progress_str = str8_pushf(tmp.arena, "Ores: %d/%d", ore_collected, ore_count);
       r_text(renderer, ore_progress_str, game.font, 32, v2f32(500, 92), col, 0);
       
       arena_temp_end(tmp);
@@ -482,9 +542,9 @@ entry_point(void)
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_Enemy,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_GroundEnemy,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
   };
   map.width = 6;
   map.height = 6;
