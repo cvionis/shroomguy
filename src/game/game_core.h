@@ -6,6 +6,7 @@
 
 #define G_TILEMAP_TOKENS_MAX 256
 #define G_LEVEL_GROUND_ENEMIES_MAX 32
+#define G_LEVEL_BOULDERS_MAX 16
 
 //
 // Input
@@ -110,6 +111,7 @@ struct G_TransitionV2F32 {
 struct G_Entity {
   V2F32 pos; // @Note: Unscaled
   G_TransitionV2F32 move;
+  U32 tilemap_idx;
 };
 
 //
@@ -151,8 +153,14 @@ struct G_Level {
   G_Entity player;
   U32 ore_count;
   
-  G_Entity ground_enemies[G_LEVEL_GROUND_ENEMIES_MAX];
   U32 ground_enemies_count;
+  G_Entity ground_enemies[G_LEVEL_GROUND_ENEMIES_MAX];
+  
+  U32 small_boulders_count;
+  G_Entity small_boulders[G_LEVEL_BOULDERS_MAX];
+  
+  U32 large_boulders_count;
+  G_Entity large_boulders[G_LEVEL_BOULDERS_MAX];
 };
 
 //

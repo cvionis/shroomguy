@@ -58,6 +58,7 @@ g_player_from_tilemap(G_TileMap *map)
     G_TileToken t = tokens[token_idx];
     if (t & G_TileToken_Player) {
       player.pos = v2f32(px, py);
+      player.tilemap_idx = token_idx;
     }
   }
   
@@ -84,6 +85,7 @@ g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
     if (t & G_TileToken_EnemyGround) {
       G_Entity *ent = enemies + enemies_count;
       ent->pos = v2f32(px, py);
+      ent->tilemap_idx = token_idx;
       enemies_count += 1;
     }
   }
@@ -109,6 +111,51 @@ g_ore_count_from_tilemap(G_TileMap *map)
   return ore_count;
 }
 
+struct G_LevelBoulderInfo {
+  U32 small_count;
+  U32 large_count;
+};
+
+function G_LevelBoulderInfo
+g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_TileMap *map)
+{
+  G_LevelBoulderInfo result = {0};
+  
+  G_TileToken *tokens = map->tokens;
+  U32 map_width = map->width;
+  U32 map_height = map->height;
+  U32 token_count = map_width * map_height;
+  
+  U32 small_count = 0;
+  U32 large_count = 0;
+  
+  // @Note: This function assumes the level will have <= G_LEVEL_BOULDERS_MAX
+  // count of small and large boulders. This should be checked when reading a tilemap
+  // from disk, not here.
+  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+    F32 px = (F32)(token_idx % map_width);
+    F32 py = (F32)(token_idx / map_width);
+    
+    G_TileToken t = tokens[token_idx];
+    if (t & G_TileToken_BoulderSmall) {
+      G_Entity *ent = small_boulders + small_count;
+      ent->pos = v2f32(px, py);
+      ent->tilemap_idx = token_idx;
+      small_count += 1;
+    }
+    else if (t & G_TileToken_BoulderLarge) {
+      G_Entity *ent = large_boulders + large_count;
+      ent->pos = v2f32(px, py);
+      ent->tilemap_idx = token_idx;
+      large_count += 1;
+    }
+  }
+  
+  result.small_count = small_count;
+  result.large_count = large_count;
+  return result;
+}
+
 function G_Level
 g_level_from_tilemap(G_TileMap *map) 
 {
@@ -117,6 +164,10 @@ g_level_from_tilemap(G_TileMap *map)
   level.ore_count = g_ore_count_from_tilemap(map);
   level.player = g_player_from_tilemap(map);
   level.ground_enemies_count = g_ground_enemies_from_tilemap(level.ground_enemies, map);
+  
+  G_LevelBoulderInfo boulders = g_boulders_from_tilemap(level.small_boulders, level.large_boulders, map);
+  level.small_boulders_count = boulders.small_count;
+  level.large_boulders_count = boulders.large_count;
   
   return level;
 }
@@ -225,6 +276,7 @@ struct G_LevelSimResult {
 
 struct G_MoveResult {
   G_TileToken dst_token;
+  U32 dst_idx;
 };
 
 struct G_MoveTransition {
@@ -260,15 +312,16 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_MoveTransition
       G_TileToken src_tile = G_TileToken_Empty; 
       G_TileToken dst_tile = map->tokens[dst_idx];
       G_TileToken ent_tile = map->tokens[ent_idx];
-      
       if (dst_tile & G_TileToken_Empty) {
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  move_transition.speed, move_transition.curve);
         map->tokens[ent_idx] = src_tile;
         map->tokens[dst_idx] = ent_tile;
+        entity->tilemap_idx = dst_idx;
       }
       
       result.dst_token = dst_tile;
+      result.dst_idx = dst_idx;
     }
   }
   
@@ -343,6 +396,25 @@ g_entity_do_gravity(G_Entity *entity, G_Level *level)
   return result;
 }
 
+function G_Entity *
+g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx)
+{
+  G_Entity *result = 0;
+  
+  U32 small_boulders_count = level->small_boulders_count;
+  G_Entity *small_boulders = level->small_boulders;
+  
+  for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
+    G_Entity *ent = &small_boulders[boulder_idx];
+    if (ent->tilemap_idx == idx) {
+      result = ent;
+      break;
+    }
+  }
+  
+  return result;
+}
+
 function G_LevelSimResult
 g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time)
 {
@@ -363,7 +435,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   
   G_TileMap *map = level->map;
   
-  // Player: mining, movement, gravity, animation
+  // Player
   G_Entity *player = &level->player;
   if (dx || dy) {
     g_undo_push(undo, map);
@@ -373,22 +445,27 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_MoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     G_MoveResult move_result = g_entity_move(player, level, dx, 0, tr);
     
-    B32 enemy_contact = 
-    (move_result.dst_token == G_TileToken_EnemyGround) || (move_result.dst_token == G_TileToken_EnemyAir);
-    if (enemy_contact) {
+    G_TileToken dst_token = move_result.dst_token;
+    
+    if ((dst_token == G_TileToken_EnemyGround) || (dst_token == G_TileToken_EnemyAir)) {
       result.lost = 1; // @Note: Temporary behavior.
+    }
+    else if (dst_token == G_TileToken_BoulderSmall) {
+      G_Entity *small_boulder = g_small_boulder_from_tilemap_idx(level, move_result.dst_idx);
+      g_entity_move(small_boulder, level, dx, 0, tr);
+      g_entity_move(player, level, dx, 0, tr);
     }
   }
   g_entity_do_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
-  // Ground enemies: gravity, animation, player interaction
+  // Ground enemies
   U32 ground_enemies_count = level->ground_enemies_count;
   G_Entity *ground_enemies = level->ground_enemies;
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    // @Todo: Determine why enemy falling looks instantaneous
+    // @Todo: Determine why falling looks instantaneous
     G_MoveResult move_result = g_entity_do_gravity(enemy, level);
     g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
     
@@ -399,6 +476,17 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       result.lost = 1;
       break;
     }
+  }
+  
+  // Small boulders
+  U32 small_boulders_count = level->small_boulders_count;
+  G_Entity *small_boulders = level->small_boulders;
+  for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
+    G_Entity *boulder = &small_boulders[boulder_idx];
+    
+    // @Todo: Determine why falling looks instantaneous
+    G_MoveResult move_result = g_entity_do_gravity(boulder, level);
+    g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
   }
   
   return result;
@@ -434,6 +522,9 @@ update(void)
     g_undo_pop(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
     game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
+    G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
+    game.level.small_boulders_count = boulders.small_count;
+    game.level.large_boulders_count = boulders.large_count;
     
     game.mine.v += 1;
     game.mine.v = Min(game.mine.v, game.mine.max);
@@ -447,6 +538,9 @@ update(void)
     g_undo_restart(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
     game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
+    G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
+    game.level.small_boulders_count = boulders.small_count;
+    game.level.large_boulders_count = boulders.large_count;
     
     game.mine.v = game.mine.max;
     game.mine.ore_collected = 0;

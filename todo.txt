@@ -48,14 +48,17 @@
 		- Larger ones cannot be pushed (block player movement) but can be dug
 			underneath; does not kill player when dropping on his head. Takes 3 points from
 			block below.
-[ ] Flying/stationary enemies
+[ ] Enemies should kill player when he drops on them; air enemies should kill player
+    when he presses up directly underneath them.
 [ ] Lava blocks
 [ ] Lighting
 [ ] Ladders/steps that exist as part of level, not manually placed. Maybe they can
     be destroyed by boulders.
 
+[ ] Experiment with being able to push enemies horizontally with small boulder
 [ ] Experimenting with being able to attack enemies from the side
 
+[ ] Investigate some entities not moving smoothly
 [ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
 	  meter without restoring level).
 [ ] Cleanup pass
