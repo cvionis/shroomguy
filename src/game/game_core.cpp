@@ -445,9 +445,11 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
   return result;
 }
 
-function void
+function G_EntityMineResult
 g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy)
 {
+  G_EntityMineResult result = {0};
+  
   B32 entity_moving = entity->move.active;
   B32 entity_can_mine = mine->v != 0;
   
@@ -499,17 +501,11 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       }
       
       mine->v = Max(mine->v, 0);
+      result.dst_idx = dst_idx;
+      result.dst_token = dst_tile;
     }
   }
-}
-
-function G_EntityMoveResult
-g_entity_do_gravity(G_Entity *entity, G_Level *level)
-{
-  S32 gravity_dx = 0;
-  S32 gravity_dy = 1;
-  G_EntityMoveTransition gravity_tr = { 6.1f, G_TransitionCurve_Linear };
-  G_EntityMoveResult result = g_entity_move(entity, level, gravity_dx, gravity_dy, gravity_tr );
+  
   return result;
 }
 
@@ -672,10 +668,16 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       g_entity_move(small_boulder, level, dx, 0, tr);
       g_entity_move(player, level, dx, 0, tr);
     }
-    g_entity_mine(player, level, mine, dx, dy);
+    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
+    U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
+    G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
+    G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+    G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+    if (!(a || b || c)) {
+      g_entity_move(player, level, dx, 0, tr);
+    }
   }
   g_entity_apply_gravity(player, level);
-  //g_entity_do_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
   // Ground enemies
@@ -759,6 +761,25 @@ g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx)
   
   for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
     G_Entity *ent = &small_boulders[boulder_idx];
+    if (ent->tilemap_idx == idx) {
+      result = ent;
+      break;
+    }
+  }
+  
+  return result;
+}
+
+function G_Entity *
+g_large_boulder_from_tilemap_idx(G_Level *level, U32 idx)
+{
+  G_Entity *result = 0;
+  
+  U32 large_boulders_count = level->large_boulders_count;
+  G_Entity *large_boulders = level->large_boulders;
+  
+  for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
+    G_Entity *ent = &large_boulders[boulder_idx];
     if (ent->tilemap_idx == idx) {
       result = ent;
       break;
@@ -880,7 +901,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
         
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
         
-        G_EntityMoveResult move_result = g_entity_do_gravity(enemy, level);
+        g_entity_apply_gravity(enemy, level);
       }
     }
   }

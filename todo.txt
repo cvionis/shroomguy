@@ -57,15 +57,8 @@
 
 --- 
 
-[X] Undo and reset
-[X] Energy/picaxe meter
-[X] Material collection meter/indicator
-[X] Enemy tiles and simulating enemy entities
-[ ] Boulders/hazard tiles that block movement, fall, and crush
-		- Smaller ones can be pushed and only take 1 point of block below.
-		- Larger ones cannot be pushed (block player movement) but can be dug
-			underneath; does not kill player when dropping on his head. Takes 3 points from
-			block below.
+[ ] Make player moved to mined tiles when an entity is not above it.
+[ ] Fix bug of large boulder not dropping after crushing and having tile underneath mined.
 [ ] Enemies should kill player when he drops on them; air enemies should kill player
     when he presses up directly underneath them.
 [ ] Lava blocks
@@ -76,10 +69,8 @@
 [ ] Experiment with being able to push enemies horizontally with small boulder
 [ ] Experimenting with being able to attack enemies from the side
 
-[ ] Investigate some entities not moving smoothly
 [ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
 	  meter without restoring level).
 [ ] Cleanup pass
-
 
 [ ] Particles when mining/destroying block
