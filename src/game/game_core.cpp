@@ -662,16 +662,18 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, 0, tr);
     
     G_TileToken dst_token = move_result.dst_token;
-    
-    if ((dst_token == G_TileToken_EnemyGround) || (dst_token == G_TileToken_EnemyAir)) {
-      result.lost = 1; // @Note: Temporary behavior.
-    }
-    else if (dst_token == G_TileToken_BoulderSmall) {
+    if (dst_token == G_TileToken_BoulderSmall) {
       G_Entity *small_boulder = g_small_boulder_from_tilemap_idx(level, move_result.dst_idx);
       g_entity_move(small_boulder, level, dx, 0, tr);
       g_entity_move(player, level, dx, 0, tr);
     }
+    
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
+    dst_token = mine_result.dst_token;
+    if ((dst_token == G_TileToken_EnemyGround) || (dst_token == G_TileToken_EnemyAir)) {
+      result.lost = 1; // @Note: Temporary behavior.
+    }
+    
     // Move to the mined tile if there is not entity above that tile.
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
@@ -683,6 +685,16 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   }
   g_entity_apply_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
+  
+  U32 player_tile_idx = player->tilemap_idx;
+  U32 below_tile_idx = Clamp(player_tile_idx+map->width, 0, map->width*map->height) ;
+  G_TileToken below_tile = map->tokens[below_tile_idx];
+  B32 below_tile_is_enemy = 
+  (below_tile == G_TileToken_EnemyAir) || (below_tile == G_TileToken_EnemyGround);
+  
+  if (!player->move.active && below_tile_is_enemy) {
+    result.lost = 1;
+  }
   
   // Small boulders
   U32 small_boulders_count = level->small_boulders_count;

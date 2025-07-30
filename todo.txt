@@ -24,8 +24,10 @@
 [X] Allow player to be crushed by boulders, which causes player to not be rendered and 
     to lose.
 [X] Fix bug of large boulder not dropping after crushing and having tile underneath mined.
-[ ] Enemies should kill player when he drops on them; air enemies should kill player
+[X] Enemies should kill player when he drops on them; air enemies should kill player
     when he presses up directly underneath them.
+[ ] Test crushing behavior on other blocks. Make sure that when an ore is crushed,
+    ores_collected in G_MineState is incremented.
 [ ] Lava blocks
 [ ] Fix bug that occurs when undo happens before crushing finishes
 [ ] Ladders/steps that exist as part of level, not manually placed. Maybe they can
