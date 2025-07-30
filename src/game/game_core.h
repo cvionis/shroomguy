@@ -152,6 +152,7 @@ struct G_Entity {
 struct G_EntityMoveResult {
   G_TileToken dst_token;
   U32 dst_idx;
+  B32 moved;
 };
 
 struct G_EntityMineResult {

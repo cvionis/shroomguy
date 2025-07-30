@@ -209,8 +209,8 @@ entry_point(void)
 #endif
   G_TileToken tokens[] = {
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_BoulderSmall,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_BoulderLarge,G_TileToken_Dirt,
-    G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+    G_TileToken_Player,G_TileToken_BoulderSmall,G_TileToken_BoulderSmall,G_TileToken_EnemyGround,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_BoulderLarge,G_TileToken_Empty,
+    G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,

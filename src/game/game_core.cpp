@@ -285,6 +285,7 @@ g_player_from_tilemap(G_TileMap *map)
     
     G_TileToken t = tokens[token_idx];
     if (t & G_TileToken_Player) {
+      MemoryZeroStruct(&player.move);
       player.pos = v2f32(px, py);
       player.dead = 0;
       player.tilemap_idx = token_idx;
@@ -313,6 +314,7 @@ g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
     G_TileToken t = tokens[token_idx];
     if (t & G_TileToken_EnemyGround) {
       G_Entity *ent = enemies + enemies_count;
+      MemoryZeroStruct(&ent->move);
       ent->pos = v2f32(px, py);
       ent->dead = 0;
       ent->tilemap_idx = token_idx;
@@ -364,12 +366,14 @@ g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_Ti
     G_TileToken t = tokens[token_idx];
     if (t & G_TileToken_BoulderSmall) {
       G_Entity *ent = small_boulders + small_count;
+      MemoryZeroStruct(&ent->move);
       ent->pos = v2f32(px, py);
       ent->tilemap_idx = token_idx;
       small_count += 1;
     }
     else if (t & G_TileToken_BoulderLarge) {
       G_Entity *ent = large_boulders + large_count;
+      MemoryZeroStruct(&ent->move);
       ent->pos = v2f32(px, py);
       ent->tilemap_idx = token_idx;
       large_count += 1;
@@ -430,14 +434,35 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       G_TileToken dst_tile = map->tokens[dst_idx];
       G_TileToken ent_tile = map->tokens[ent_idx];
       
+      B32 should_move = 0;
+      
       if (dst_tile & G_TileToken_Empty) {
+        should_move = 1;
+      }
+      if (dst_tile & G_TileToken_BoulderSmall) {
+        G_Entity *ent = g_small_boulder_from_tilemap_idx(level, dst_idx);
+        should_move = g_entity_move(ent, level, dx, dy, move_transition).moved;
+      }
+      if (ent_tile & G_TileToken_BoulderSmall) {
+        if (dst_tile & G_TileToken_EnemyGround) {
+          G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+          should_move = g_entity_move(ent, level, dx, dy, move_transition).moved;
+        }
+        else if (dst_tile & G_TileToken_EnemyAir) {
+          // @Todo
+        }
+      }
+      
+      if (should_move) {
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  move_transition.speed, move_transition.curve);
         map->tokens[ent_idx] = src_tile;
         map->tokens[dst_idx] = ent_tile;
         entity->tilemap_idx = dst_idx;
+        should_move = 1;
       }
       
+      result.moved = should_move; 
       result.dst_token = dst_tile;
       result.dst_idx = dst_idx;
     }
@@ -680,7 +705,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_TileToken dst_token = move_result.dst_token;
     if (dst_token == G_TileToken_BoulderSmall) {
       G_Entity *small_boulder = g_small_boulder_from_tilemap_idx(level, move_result.dst_idx);
-      g_entity_move(small_boulder, level, dx, 0, tr);
+      //g_entity_move(small_boulder, level, dx, 0, tr);
       g_entity_move(player, level, dx, 0, tr);
     }
     
