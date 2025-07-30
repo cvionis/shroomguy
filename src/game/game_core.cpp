@@ -286,6 +286,7 @@ g_player_from_tilemap(G_TileMap *map)
     G_TileToken t = tokens[token_idx];
     if (t & G_TileToken_Player) {
       player.pos = v2f32(px, py);
+      player.dead = 0;
       player.tilemap_idx = token_idx;
     }
   }
@@ -554,7 +555,9 @@ g_entity_crush(G_Entity *entity, G_Level *level)
         G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
         ent->dead = 1;
       }break;
-      // @Todo: Implement for remaining entities
+      case G_TileToken_Player: {
+        level->player.dead = 1;
+      }break;
     }
   }
 }
@@ -601,11 +604,11 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
         drop_count += 1;
         dst_pos.y += 1;
       }
-      dst_idx-=map_width;
+      dst_idx -= map_width;
       dst_tile = map->tokens[dst_idx];
-      dst_pos.y-=1;
+      dst_pos.y -= 1;
       
-      F32 tr_speed = 2.25f;
+      F32 tr_speed = 4.25f;
       G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
       
       if (drop_count > 0) {
@@ -669,6 +672,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       g_entity_move(player, level, dx, 0, tr);
     }
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
+    // Move to the mined tile if there is not entity above that tile.
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
@@ -679,26 +683,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   }
   g_entity_apply_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
-  
-  // Ground enemies
-  U32 ground_enemies_count = level->ground_enemies_count;
-  G_Entity *ground_enemies = level->ground_enemies;
-  for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
-    G_Entity *enemy = &ground_enemies[enemy_idx];
-    
-    g_entity_apply_gravity(enemy, level);
-    g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
-    
-#if 0
-    B32 enemy_sitting_on_player = (player->pos.y - enemy->pos.y <= 1.2f) &&
-    (absf32(player->pos.x - enemy->pos.x) <= 0.05f);
-    
-    if ((move_result.dst_token & G_TileToken_Player) && enemy_sitting_on_player) {
-      result.lost = 1;
-      break;
-    }
-#endif
-  }
   
   // Small boulders
   U32 small_boulders_count = level->small_boulders_count;
@@ -727,6 +711,31 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       g_entity_crush(boulder, level);
       should_crush = 0;
     }
+    
+    B32 boulder_on_player = absf32(boulder->pos.y-player->pos.y) <= 0.05f;
+    if (player->dead && boulder_on_player) {
+      result.lost = 1;
+    }
+  }
+  
+  // Ground enemies
+  U32 ground_enemies_count = level->ground_enemies_count;
+  G_Entity *ground_enemies = level->ground_enemies;
+  for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
+    G_Entity *enemy = &ground_enemies[enemy_idx];
+    
+    g_entity_apply_gravity(enemy, level);
+    g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
+    
+#if 0
+    B32 enemy_sitting_on_player = (player->pos.y - enemy->pos.y <= 1.2f) &&
+    (absf32(player->pos.x - enemy->pos.x) <= 0.05f);
+    
+    if ((move_result.dst_token & G_TileToken_Player) && enemy_sitting_on_player) {
+      result.lost = 1;
+      break;
+    }
+#endif
   }
   
   return result;
@@ -875,7 +884,6 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
   F32 scale = 64; // @Note: Temporary
   
   g_render_tilemap(renderer, assets, level->map);
-  
   
   {
     G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
