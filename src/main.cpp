@@ -59,6 +59,7 @@ update(void)
     g_undo_pop(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
     game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
+    game.level.air_enemies_count = g_air_enemies_from_tilemap(game.level.air_enemies, map);
     G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
     game.level.small_boulders_count = boulders.small_count;
     game.level.large_boulders_count = boulders.large_count;
@@ -75,6 +76,7 @@ update(void)
     g_undo_restart(&game.undo, map);
     game.level.player = g_player_from_tilemap(map);
     game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
+    game.level.air_enemies_count = g_air_enemies_from_tilemap(game.level.air_enemies, map);
     G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
     game.level.small_boulders_count = boulders.small_count;
     game.level.large_boulders_count = boulders.large_count;
@@ -209,7 +211,7 @@ entry_point(void)
 #endif
   G_TileToken tokens[] = {
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Player,G_TileToken_BoulderSmall,G_TileToken_BoulderSmall,G_TileToken_EnemyGround,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_BoulderLarge,G_TileToken_Empty,
+    G_TileToken_Player,G_TileToken_BoulderSmall,G_TileToken_BoulderSmall,G_TileToken_EnemyAir,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_BoulderLarge,G_TileToken_Empty,
     G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,

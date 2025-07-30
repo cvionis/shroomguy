@@ -5,7 +5,7 @@
 //
 
 #define G_TILEMAP_TOKENS_MAX 256
-#define G_LEVEL_GROUND_ENEMIES_MAX 32
+#define G_LEVEL_ENEMIES_MAX 32
 #define G_LEVEL_BOULDERS_MAX 16
 
 //
@@ -164,6 +164,7 @@ struct G_EntityGravityResult {
   S32 drop_count;
   U32 ent_idx;
   U32 dst_idx;
+  U32 landed_on_idx;
   G_TileToken dst_token;
   G_TileToken landed_on_token;
 };
@@ -187,7 +188,10 @@ struct G_Level {
   U32 ore_count;
   
   U32 ground_enemies_count;
-  G_Entity ground_enemies[G_LEVEL_GROUND_ENEMIES_MAX];
+  G_Entity ground_enemies[G_LEVEL_ENEMIES_MAX];
+  
+  U32 air_enemies_count;
+  G_Entity air_enemies[G_LEVEL_ENEMIES_MAX];
   
   U32 small_boulders_count;
   G_Entity small_boulders[G_LEVEL_BOULDERS_MAX];
@@ -261,6 +265,7 @@ function void g_undo_clear(G_UndoContext *undo);
 // Tilemaps
 function G_Entity g_player_from_tilemap(G_TileMap *map);
 function U32 g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
+function U32 g_air_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
 function U32 g_ore_count_from_tilemap(G_TileMap *map);
 function G_LevelBoulderInfo g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_TileMap *map);
 function G_Level g_level_from_tilemap(G_TileMap *map);
@@ -276,6 +281,7 @@ function G_LevelSimResult g_simulate_level(G_Level *level, G_UndoContext *undo, 
 function G_Entity *g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_large_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_ground_enemy_from_tilemap_idx(G_Level *level, U32 idx);
+function G_Entity *g_air_enemy_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
 function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);
