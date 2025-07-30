@@ -164,6 +164,7 @@ struct G_EntityGravityResult {
   U32 ent_idx;
   U32 dst_idx;
   G_TileToken dst_token;
+  G_TileToken landed_on_token;
 };
 
 struct G_EntityMoveTransition {

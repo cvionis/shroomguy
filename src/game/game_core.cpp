@@ -590,7 +590,6 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       G_TileToken src_tile = G_TileToken_Empty; 
       G_TileToken ent_tile = map->tokens[ent_idx];
       
-      
       // @Todo: This is garbage
       U32 dst_idx = ent_idx;
       G_TileToken dst_tile = map->tokens[dst_idx];
@@ -621,12 +620,14 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
         map->tokens[ent_idx] = src_tile;
         map->tokens[dst_idx] = ent_tile;
         entity->tilemap_idx = dst_idx;
-        
-        result.drop_count = drop_count;
-        result.dst_token = dst_tile;
-        result.ent_idx = ent_idx;
-        result.dst_idx = dst_idx;
       }
+      
+      result.drop_count = drop_count;
+      result.dst_token = dst_tile;
+      result.ent_idx = ent_idx;
+      result.dst_idx = dst_idx;
+      U32 landed_on_idx = dst_idx + map_width; // @Note: Probably need to clamp.
+      result.landed_on_token = map->tokens[landed_on_idx];
     }
   }
   
@@ -724,8 +725,9 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       should_crush = 0;
     }
     
-    B32 boulder_on_player = absf32(boulder->pos.y-player->pos.y) <= 0.05f;
-    if (player->dead && boulder_on_player) {
+    B32 boulder_at_player = 
+    (absf32(boulder->pos.y-player->pos.y) <= 0.05f) && (absf32(boulder->pos.x-player->pos.x <= 0.05f));
+    if (player->dead && boulder_at_player) {
       result.lost = 1;
     }
   }
@@ -736,18 +738,15 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    g_entity_apply_gravity(enemy, level);
+    G_EntityGravityResult gravity_result = g_entity_apply_gravity(enemy, level);
     g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
     
-#if 0
-    B32 enemy_sitting_on_player = (player->pos.y - enemy->pos.y <= 1.2f) &&
-    (absf32(player->pos.x - enemy->pos.x) <= 0.05f);
-    
-    if ((move_result.dst_token & G_TileToken_Player) && enemy_sitting_on_player) {
+    B32 enemy_on_player = absf32(player->pos.y - enemy->pos.y) <= 1.05;
+    if ((gravity_result.landed_on_token & G_TileToken_Player) && enemy_on_player) {
       result.lost = 1;
       break;
     }
-#endif
+    
   }
   
   return result;
