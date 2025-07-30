@@ -168,19 +168,22 @@ g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time)
     if (clamped_t >= 1) {
       tr->active = 0;
       finished = 1;
+      *out = tr->dst;
     }
     
-    F32 eased_t = clamped_t;
-    switch (tr->curve) {
-      case G_TransitionCurve_ExponentialEaseIn: {
-        eased_t = ease_expo_in(clamped_t);
-      }break;
-      case G_TransitionCurve_QuinticEaseInOut: {
-        eased_t = ease_quintic_inout(clamped_t);
-      }break;
+    if (!finished) {
+      F32 eased_t = clamped_t;
+      switch (tr->curve) {
+        case G_TransitionCurve_ExponentialEaseIn: {
+          eased_t = ease_expo_in(clamped_t);
+        }break;
+        case G_TransitionCurve_QuinticEaseInOut: {
+          eased_t = ease_quintic_inout(clamped_t);
+        }break;
+      }
+      
+      *out = v2f32_lerp(tr->src, tr->dst, eased_t);
     }
-    
-    *out = v2f32_lerp(tr->src, tr->dst, eased_t);
   }
   
   return finished;
@@ -310,6 +313,7 @@ g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
     if (t & G_TileToken_EnemyGround) {
       G_Entity *ent = enemies + enemies_count;
       ent->pos = v2f32(px, py);
+      ent->dead = 0;
       ent->tilemap_idx = token_idx;
       enemies_count += 1;
     }
@@ -504,7 +508,7 @@ g_entity_do_gravity(G_Entity *entity, G_Level *level)
 {
   S32 gravity_dx = 0;
   S32 gravity_dy = 1;
-  G_EntityMoveTransition gravity_tr = { 10.1f, G_TransitionCurve_Linear };
+  G_EntityMoveTransition gravity_tr = { 6.1f, G_TransitionCurve_Linear };
   G_EntityMoveResult result = g_entity_move(entity, level, gravity_dx, gravity_dy, gravity_tr );
   return result;
 }
@@ -512,6 +516,123 @@ g_entity_do_gravity(G_Entity *entity, G_Level *level)
 //
 // Levels
 //
+
+function void
+g_entity_crush(G_Entity *entity, G_Level *level)
+{
+  G_TileMap *map = level->map;
+  S32 dx = 0;
+  S32 dy = 1;
+  V2F32 delta = v2f32((F32)dx, (F32)dy);
+  
+  S32 map_width  = map->width;
+  S32 map_height = map->height;
+  
+  V2F32 ent_pos = entity->pos;
+  V2F32 dst_pos = v2f32_add(ent_pos, delta);
+  
+  F32 biased_dst_x = dst_pos.x + 0.5f;
+  F32 biased_dst_y = dst_pos.y + 0.5f;
+  
+  B32 dst_in_map = (biased_dst_x >= 0 && biased_dst_x < map_width &&
+                    biased_dst_y >= 0 && biased_dst_y < map_height);
+  if (dst_in_map) {
+    S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
+    S32 dst_idx = ent_idx + (dx + dy * map_width);
+    
+    G_TileToken src_tile = G_TileToken_Empty; 
+    G_TileToken dst_tile = map->tokens[dst_idx];
+    G_TileToken ent_tile = map->tokens[ent_idx];
+    
+    F32 tr_speed = 2.25f;
+    G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
+    g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
+                             tr_speed, tr_curve);
+    
+    map->tokens[ent_idx] = src_tile;
+    map->tokens[dst_idx] = ent_tile;
+    entity->tilemap_idx = dst_idx;
+    
+    switch (dst_tile) {
+      case G_TileToken_EnemyGround: {
+        G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+        ent->dead = 1;
+      }break;
+      // @Todo: Implement for remaining entities
+    }
+  }
+}
+
+function G_EntityGravityResult
+g_entity_apply_gravity(G_Entity *entity, G_Level *level)
+{
+  G_EntityGravityResult result = {0};
+  
+  B32 entity_moving = entity->move.active;
+  if (!entity_moving) {
+    G_TileMap *map = level->map;
+    
+    V2F32 delta = v2f32(0, 1);
+    
+    S32 map_width  = map->width;
+    S32 map_height = map->height;
+    
+    V2F32 ent_pos = entity->pos;
+    V2F32 dst_pos = v2f32_add(ent_pos, delta);
+    
+    F32 biased_dst_x = dst_pos.x + 0.5f;
+    F32 biased_dst_y = dst_pos.y + 0.5f;
+    
+    B32 dst_in_map = (biased_dst_x >= 0 && biased_dst_x < map_width &&
+                      biased_dst_y >= 0 && biased_dst_y < map_height);
+    if (dst_in_map) {
+      S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
+      
+      G_TileToken src_tile = G_TileToken_Empty; 
+      G_TileToken ent_tile = map->tokens[ent_idx];
+      
+      
+      // @Todo: This is garbage
+      U32 dst_idx = ent_idx;
+      G_TileToken dst_tile = map->tokens[dst_idx];
+      S32 drop_count = 0;
+      for (;;) {
+        dst_idx += map_width;
+        dst_tile = map->tokens[dst_idx];
+        if (dst_tile != G_TileToken_Empty) {
+          break;
+        }
+        drop_count += 1;
+        dst_pos.y += 1;
+      }
+      dst_idx-=map_width;
+      dst_tile = map->tokens[dst_idx];
+      dst_pos.y-=1;
+      
+      F32 tr_speed = 2.25f;
+      G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
+      
+      if (drop_count > 0) {
+        // @Todo: Consider just returning ent_pos and dst_pos
+        // and just have the caller call this; the caller has to 
+        // call transition_update anyway.
+        g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
+                                 tr_speed, tr_curve);
+        
+        map->tokens[ent_idx] = src_tile;
+        map->tokens[dst_idx] = ent_tile;
+        entity->tilemap_idx = dst_idx;
+        
+        result.drop_count = drop_count;
+        result.dst_token = dst_tile;
+        result.ent_idx = ent_idx;
+        result.dst_idx = dst_idx;
+      }
+    }
+  }
+  
+  return result;
+}
 
 function G_LevelSimResult
 g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time)
@@ -538,7 +659,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   if (dx || dy) {
     g_undo_push(undo, map);
     
-    
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, 0, tr);
     
@@ -554,7 +674,8 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     }
     g_entity_mine(player, level, mine, dx, dy);
   }
-  g_entity_do_gravity(player, level);
+  g_entity_apply_gravity(player, level);
+  //g_entity_do_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
   // Ground enemies
@@ -563,10 +684,10 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    // @Todo: Determine why falling isn't smooth
-    G_EntityMoveResult move_result = g_entity_do_gravity(enemy, level);
+    g_entity_apply_gravity(enemy, level);
     g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
     
+#if 0
     B32 enemy_sitting_on_player = (player->pos.y - enemy->pos.y <= 1.2f) &&
     (absf32(player->pos.x - enemy->pos.x) <= 0.05f);
     
@@ -574,6 +695,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       result.lost = 1;
       break;
     }
+#endif
   }
   
   // Small boulders
@@ -582,20 +704,46 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
     G_Entity *boulder = &small_boulders[boulder_idx];
     
-    // @Todo: Determine why falling isn't smooth
-    G_EntityMoveResult move_result = g_entity_do_gravity(boulder, level);
+    //G_EntityMoveResult move_result = _entity_do_gravity(boulder, level);
+    g_entity_apply_gravity(boulder, level);
     g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
   }
   
   // Large boulders
+  static B32 should_crush = 0;
   U32 large_boulders_count = level->large_boulders_count;
   G_Entity *large_boulders = level->large_boulders;
   for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
     G_Entity *boulder = &large_boulders[boulder_idx];
     
-    // @Todo: Determine why falling isn't smooth
-    G_EntityMoveResult move_result = g_entity_do_gravity(boulder, level);
-    g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
+    G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
+    if (gravity.drop_count >= 1) {
+      should_crush = 1;
+    }
+    B32 done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
+    if (done && should_crush) { 
+      g_entity_crush(boulder, level);
+      should_crush = 0;
+    }
+  }
+  
+  return result;
+}
+
+function G_Entity *
+g_ground_enemy_from_tilemap_idx(G_Level *level, U32 idx)
+{
+  G_Entity *result = 0;
+  
+  U32 enemies_count = level->ground_enemies_count;
+  G_Entity *enemies = level->ground_enemies;
+  
+  for (U32 enemy_idx = 0; enemy_idx < enemies_count; enemy_idx += 1) {
+    G_Entity *ent = &enemies[enemy_idx];
+    if (ent->tilemap_idx == idx) {
+      result = ent;
+      break;
+    }
   }
   
   return result;
@@ -691,15 +839,6 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_OreT2: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
       }break;
-      case G_TileToken_BoulderSmall: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_small.png"));
-      }break;
-      case G_TileToken_BoulderLarge: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_large.png"));
-      }break;
-      case G_TileToken_EnemyGround: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/enemy_ground.png"));
-      }break;
       case G_TileToken_EnemyAir: {
         sprite = g_assets_get_sprite(assets, S8("sprites/enemy_air.png"));
       }break;
@@ -716,10 +855,64 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
   
   g_render_tilemap(renderer, assets, level->map);
   
-  G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
-  G_Entity *player = &level->player;
-  F32 scaled_spr_x = scale * player->pos.x;
-  F32 scaled_spr_y = scale * player->pos.y;
   
-  g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+  {
+    G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
+    G_Entity *player = &level->player;
+    F32 scaled_spr_x = scale * player->pos.x;
+    F32 scaled_spr_y = scale * player->pos.y;
+    
+    g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+  }
+  
+  // Ground enemies
+  {
+    G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/enemy_ground.png"));
+    
+    U32 ground_enemies_count = level->ground_enemies_count;
+    G_Entity *ground_enemies = level->ground_enemies;
+    for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
+      G_Entity *enemy = &ground_enemies[enemy_idx];
+      
+      if (!enemy->dead) { 
+        F32 scaled_spr_x = scale * enemy->pos.x;
+        F32 scaled_spr_y = scale * enemy->pos.y;
+        
+        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+        
+        G_EntityMoveResult move_result = g_entity_do_gravity(enemy, level);
+      }
+    }
+  }
+  
+  // Small boulders
+  {
+    G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/boulder_small.png"));
+    
+    U32 small_boulders_count = level->small_boulders_count;
+    G_Entity *small_boulders = level->small_boulders;
+    
+    for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
+      G_Entity *boulder = &small_boulders[boulder_idx];
+      F32 scaled_spr_x = scale * boulder->pos.x;
+      F32 scaled_spr_y = scale * boulder->pos.y;
+      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+    }
+  }
+  
+  // Large boulders
+  {
+    G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/boulder_large.png"));
+    
+    U32 large_boulders_count = level->large_boulders_count;
+    G_Entity *large_boulders = level->large_boulders;
+    
+    for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
+      G_Entity *boulder = &large_boulders[boulder_idx];
+      F32 scaled_spr_x = scale * boulder->pos.x;
+      F32 scaled_spr_y = scale * boulder->pos.y;
+      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+    }
+  }
+  
 }

@@ -146,11 +146,19 @@ struct G_Entity {
   V2F32 pos; // @Note: Unscaled
   G_TransitionV2F32 move;
   U32 tilemap_idx;
+  B32 dead;
 };
 
 struct G_EntityMoveResult {
   G_TileToken dst_token;
   U32 dst_idx;
+};
+
+struct G_EntityGravityResult {
+  S32 drop_count;
+  U32 ent_idx;
+  U32 dst_idx;
+  G_TileToken dst_token;
 };
 
 struct G_EntityMoveTransition {
@@ -249,12 +257,14 @@ function G_Level g_level_from_tilemap(G_TileMap *map);
 // Entities
 function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);
 function void g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy);
-function G_EntityMoveResult g_entity_do_gravity(G_Entity *entity, G_Level *level);
+function void g_entity_crush(G_Entity *entity, G_Level *level);
+function G_EntityGravityResult g_entity_apply_gravity(G_Entity *entity, G_Level *level);
 
 
 // Levels
 function G_LevelSimResult g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time);
 function G_Entity *g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx);
+function G_Entity *g_ground_enemy_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
 function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);

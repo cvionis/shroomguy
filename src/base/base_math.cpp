@@ -5,7 +5,7 @@
 function F32
 lerpf32(F32 a, F32 b, F32 t)
 {
-  return (1 - t)*a + t*b;
+  return (1.f - t)*a + t*b;
 }
 
 //

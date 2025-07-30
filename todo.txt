@@ -37,6 +37,24 @@
 - With these enemy variants and new mechanics, consider removing the need to place
   ladders/steps and to return to starting point to beat a level after collecting ores.
 
+- For now, going to make small boulders do no damage, and make big boulders destroy
+	whatever they land on when falling from two tiles above.
+
+- When a player mines a block from the side with a gravity-simulated entity above that 
+	block, should the block fall in front of the player, or should the player move to that
+	tile and have the block fall on his head?
+	I feel like this behaviour probably shouldn't differ among different types of blocks
+	as that would be confusing.
+	
+	However, I still want the player to move to the mined tile if there is no gravity-
+	simulated entity above the mined tile.
+
+- For smooth multi-tile vertical movements due to gravity, it might be necessary to 
+	handle gravity in g_entity_move() so that the dst position in the transition can be
+	set to the tile that the entity with land at.   
+
+- Ores, player should glow.
+
 --- 
 
 [X] Undo and reset
