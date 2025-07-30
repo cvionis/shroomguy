@@ -105,16 +105,6 @@ struct G_TransitionV2F32 {
 };
 
 //
-// Entities
-//
-
-struct G_Entity {
-  V2F32 pos; // @Note: Unscaled
-  G_TransitionV2F32 move;
-  U32 tilemap_idx;
-};
-
-//
 // Tiles & Tilemaps
 //
 
@@ -148,6 +138,30 @@ struct G_TileMap {
   G_TileMapFlags flags;
 };
 
+//
+// Entities
+//
+
+struct G_Entity {
+  V2F32 pos; // @Note: Unscaled
+  G_TransitionV2F32 move;
+  U32 tilemap_idx;
+};
+
+struct G_EntityMoveResult {
+  G_TileToken dst_token;
+  U32 dst_idx;
+};
+
+struct G_EntityMoveTransition {
+  F32 speed;
+  G_TransitionCurve curve;
+};
+
+//
+// Levels
+//
+
 struct G_Level {
   G_TileMap *map;
   G_Entity player;
@@ -161,6 +175,15 @@ struct G_Level {
   
   U32 large_boulders_count;
   G_Entity large_boulders[G_LEVEL_BOULDERS_MAX];
+};
+
+struct G_LevelSimResult {
+  B32 lost;
+};
+
+struct G_LevelBoulderInfo {
+  U32 small_count;
+  U32 large_count;
 };
 
 //
@@ -184,6 +207,20 @@ struct G_UndoContext {
   G_UndoNode *free;
 };
 
+//
+// Mining state
+//
+
+struct G_MineState {
+  S32 v;
+  S32 max;
+  S32 ore_collected;
+};
+
+//
+// Misc.
+//
+
 // Input
 function void g_get_input(OS_Handle window, G_Input *input, OS_EventList *events);
 function B32 g_key_pressed(G_Input *input, G_Key key);
@@ -191,17 +228,36 @@ function B32 g_key_down(G_Input *input, G_Key key);
 function B32 g_mouse_pressed(G_Input *input, G_MouseButton btn);
 function B32 g_mouse_down(G_Input *input, G_MouseButton btn);
 
+// Transitions
+function void g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 speed, G_TransitionCurve curve);
+function B32 g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time);
+function void g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed, G_TransitionCurve curve);
+function B32 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time);
+
 // Undo System
 function G_UndoContext g_undo_make(void);
 function void g_undo_release(G_UndoContext *undo);
 function void g_undo_clear(G_UndoContext *undo);
 
-function void g_tilemap_undo_push(G_TileMap *map);
-function void g_tilemap_undo_pop(G_TileMap *map);
-function void g_tilemap_undo_restart(G_TileMap *map);
+// Tilemaps
+function G_Entity g_player_from_tilemap(G_TileMap *map);
+function U32 g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
+function U32 g_ore_count_from_tilemap(G_TileMap *map);
+function G_LevelBoulderInfo g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_TileMap *map);
+function G_Level g_level_from_tilemap(G_TileMap *map);
 
-// Transitions
-function void g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 speed, G_TransitionCurve curve);
-function void g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed, G_TransitionCurve curve);
-function B32 g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time);
-function B32 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time);
+// Entities
+function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);
+function void g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy);
+function G_EntityMoveResult g_entity_do_gravity(G_Entity *entity, G_Level *level);
+
+
+// Levels
+function G_LevelSimResult g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time);
+function G_Entity *g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx);
+
+// Rendering
+function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);
+function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map);
+
+function void g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level);
