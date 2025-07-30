@@ -26,6 +26,7 @@
 [X] Fix bug of large boulder not dropping after crushing and having tile underneath mined.
 [X] Enemies should kill player when he drops on them; air enemies should kill player
     when he presses up directly underneath them.
+
 [ ] Test crushing behavior on other blocks. Make sure that when an ore is crushed,
     ores_collected in G_MineState is incremented.
 [ ] Lava blocks
@@ -39,9 +40,11 @@
 [ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
 	  meter without restoring level).
 
-
 [ ] Cleanup pass
 
 [ ] Particles when mining/destroying block
 
 [ ] Lighting
+
+[ ] Some blocks are not smoothly covered then crushed when being crushed; non-entities
+    in particular

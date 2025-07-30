@@ -514,9 +514,11 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
 // Levels
 //
 
-function void
+function G_EntityCrushResult
 g_entity_crush(G_Entity *entity, G_Level *level)
 {
+  G_EntityCrushResult result = {0};
+  
   G_TileMap *map = level->map;
   S32 dx = 0;
   S32 dy = 1;
@@ -541,14 +543,7 @@ g_entity_crush(G_Entity *entity, G_Level *level)
     G_TileToken dst_tile = map->tokens[dst_idx];
     G_TileToken ent_tile = map->tokens[ent_idx];
     
-    F32 tr_speed = 2.25f;
-    G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
-    g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
-                             tr_speed, tr_curve);
-    
-    map->tokens[ent_idx] = src_tile;
-    map->tokens[dst_idx] = ent_tile;
-    entity->tilemap_idx = dst_idx;
+    B32 can_crush = 1;
     
     switch (dst_tile) {
       case G_TileToken_EnemyGround: {
@@ -558,8 +553,28 @@ g_entity_crush(G_Entity *entity, G_Level *level)
       case G_TileToken_Player: {
         level->player.dead = 1;
       }break;
+      case G_TileToken_BoulderSmall: {
+        can_crush = 0;
+      }break;
+      case G_TileToken_BoulderLarge: {
+        can_crush = 0;
+      }break;
+    }
+    
+    if (can_crush) {
+      F32 tr_speed = 2.25f;
+      G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
+      g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
+                               tr_speed, tr_curve);
+      map->tokens[ent_idx] = src_tile;
+      map->tokens[dst_idx] = ent_tile;
+      entity->tilemap_idx = dst_idx;
+      
+      result.crushed_token = dst_tile;
     }
   }
+  
+  return result;
 }
 
 function G_EntityGravityResult
@@ -721,7 +736,16 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     }
     B32 done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
     if (done && should_crush) { 
-      g_entity_crush(boulder, level);
+      G_EntityCrushResult crush_result = g_entity_crush(boulder, level);
+      G_TileToken crushed = crush_result.crushed_token;
+      B32 crushed_ore = 
+      (crushed & G_TileToken_OreT2) || 
+      (crushed & G_TileToken_OreT1) || 
+      (crushed & G_TileToken_OreT0);
+      if (crushed_ore) {
+        mine->v -= 1;
+        mine->ore_collected += 1;
+      }
       should_crush = 0;
     }
     

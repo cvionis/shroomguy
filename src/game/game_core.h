@@ -167,6 +167,10 @@ struct G_EntityGravityResult {
   G_TileToken landed_on_token;
 };
 
+struct G_EntityCrushResult {
+  G_TileToken crushed_token;
+};
+
 struct G_EntityMoveTransition {
   F32 speed;
   G_TransitionCurve curve;
@@ -263,7 +267,7 @@ function G_Level g_level_from_tilemap(G_TileMap *map);
 // Entities
 function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);
 function G_EntityMineResult g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy);
-function void g_entity_crush(G_Entity *entity, G_Level *level);
+function G_EntityCrushResult g_entity_crush(G_Entity *entity, G_Level *level);
 function G_EntityGravityResult g_entity_apply_gravity(G_Entity *entity, G_Level *level);
 
 // Levels

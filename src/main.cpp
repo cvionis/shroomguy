@@ -195,6 +195,7 @@ entry_point(void)
   map.width = 6;
   map.height = 6;
 #endif
+#if 0
   G_TileToken tokens[] = {
     G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_BoulderSmall,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_BoulderLarge,G_TileToken_Dirt,
@@ -205,6 +206,18 @@ entry_point(void)
   };
   map.width = 8;
   map.height = 6;
+#endif
+  G_TileToken tokens[] = {
+    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_BoulderSmall,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_BoulderLarge,G_TileToken_Dirt,
+    G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+    G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
+    G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,
+    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,
+  };
+  map.width = 8;
+  map.height = 6;
+  
   MemoryCopy(map.tokens, tokens, map.width*map.height*sizeof(G_TileToken));
   
   game.level = g_level_from_tilemap(&map);
