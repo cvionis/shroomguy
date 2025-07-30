@@ -287,7 +287,7 @@ g_player_from_tilemap(G_TileMap *map)
     if (t & G_TileToken_Player) {
       MemoryZeroStruct(&player.move);
       player.pos = v2f32(px, py);
-      player.dead = 0;
+      player.health = 1;
       player.tilemap_idx = token_idx;
     }
   }
@@ -316,7 +316,7 @@ g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
       G_Entity *ent = enemies + enemies_count;
       MemoryZeroStruct(&ent->move);
       ent->pos = v2f32(px, py);
-      ent->dead = 0;
+      ent->health = G_GROUND_ENEMY_HEALTH_MAX;
       ent->tilemap_idx = token_idx;
       enemies_count += 1;
     }
@@ -346,7 +346,7 @@ g_air_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map)
       G_Entity *ent = enemies + enemies_count;
       MemoryZeroStruct(&ent->move);
       ent->pos = v2f32(px, py);
-      ent->dead = 0;
+      ent->health = G_AIR_ENEMY_HEALTH_MAX;
       ent->tilemap_idx = token_idx;
       enemies_count += 1;
     }
@@ -530,35 +530,68 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
       S32 dst_idx = ent_idx + (dx + dy * map_width);
       
+      
+      G_TileToken ent_tile = map->tokens[ent_idx];
       G_TileToken dst_tile = map->tokens[dst_idx];
+      
+      B32 mined = 0;
       
       if (dst_tile & G_TileToken_Dirt) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         mine->v -= 1;
+        mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         mine->v -= 1;
+        mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         mine->v -= 1;
+        mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT2) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         mine->v -= 1;
+        mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         mine->v -= 1;
+        mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         mine->ore_collected += 1;
         mine->v -= 1;
+        mined = 1;
       }
       
-      mine->v = Max(mine->v, 0);
+      if (ent_tile & G_TileToken_Player) {
+        G_Entity *enemy = 0;
+        if (dst_tile & G_TileToken_EnemyGround) {
+          enemy = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+        }
+        if (dst_tile & G_TileToken_EnemyAir) {
+          enemy = g_air_enemy_from_tilemap_idx(level, dst_idx);
+        }
+        
+        if (enemy) {
+          if (mine->v > 0) {
+            enemy->health -= 1;
+            mine->v -= 1;
+            if (enemy->health <= 0) {
+              mined = 1;
+              map->tokens[dst_idx] = G_TileToken_Empty;
+            }
+          }
+        }
+      }
+      
+      //mine->v = Max(mine->v, 0);
+      
+      result.mined = mined;
       result.dst_idx = dst_idx;
       result.dst_token = dst_tile;
     }
@@ -605,10 +638,10 @@ g_entity_crush(G_Entity *entity, G_Level *level)
     switch (dst_tile) {
       case G_TileToken_EnemyGround: {
         G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
-        ent->dead = 1;
+        ent->health = 0;
       }break;
       case G_TileToken_Player: {
-        level->player.dead = 1;
+        level->player.health = 0;
       }break;
       case G_TileToken_BoulderSmall: {
         can_crush = 0;
@@ -736,16 +769,22 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     G_TileToken dst_token = mine_result.dst_token;
-    if ((dst_token == G_TileToken_EnemyGround) || (dst_token == G_TileToken_EnemyAir)) {
-      result.lost = 1; // @Note: Temporary behavior.
+    B32 mined = mine_result.mined;
+    
+    B32 dst_is_enemy = 0;
+    if (dst_token == G_TileToken_EnemyGround) {
+      dst_is_enemy = 1;
+    }
+    else if (dst_token == G_TileToken_EnemyAir) {
+      dst_is_enemy = 1;
     }
     
-    // Move to the mined tile if there is not entity above that tile.
+    // Move to the mined tile if there is not an entity above that tile.
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    if (!(a || b || c)) {
+    if (!(a || b || c) && mined) {
       g_entity_move(player, level, dx, 0, tr);
     }
   }
@@ -811,7 +850,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     B32 boulder_at_player = 
     (absf32(boulder->pos.y-player->pos.y) <= 0.05f) && (absf32(boulder->pos.x-player->pos.x <= 0.05f));
-    if (player->dead && boulder_at_player) {
+    if ((player->health == 0) && boulder_at_player) {
       result.lost = 1;
     }
   }
@@ -1021,7 +1060,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 enemy_idx = 0; enemy_idx < air_enemies_count; enemy_idx += 1) {
       G_Entity *enemy = &air_enemies[enemy_idx];
       
-      if (!enemy->dead) { 
+      if (enemy->health > 0) { 
         F32 scaled_spr_x = scale * enemy->pos.x;
         F32 scaled_spr_y = scale * enemy->pos.y;
         
@@ -1039,7 +1078,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
       G_Entity *enemy = &ground_enemies[enemy_idx];
       
-      if (!enemy->dead) { 
+      if (enemy->health > 0) { 
         F32 scaled_spr_x = scale * enemy->pos.x;
         F32 scaled_spr_y = scale * enemy->pos.y;
         

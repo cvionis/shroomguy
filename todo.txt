@@ -26,16 +26,16 @@
 [X] Fix bug of large boulder not dropping after crushing and having tile underneath mined.
 [X] Enemies should kill player when he drops on them; air enemies should kill player
     when he presses up directly underneath them.
-
-[ ] Test crushing behavior on other blocks. Make sure that when an ore is crushed,
+[X] Test crushing behavior on other blocks. Make sure that when an ore is crushed,
     ores_collected in G_MineState is incremented.
+[X] Fix bug that occurs when undo happens before crushing finishes
+[X] Experiment with being able to push enemies horizontally with small boulder.
+		Air enemies will need to be stored as entities, which is convenient as you would 
+		have to do that later for animation.
+[X] Experiment with being able to attack enemies from the side
 [ ] Lava blocks
-[ ] Fix bug that occurs when undo happens before crushing finishes
-[ ] Ladders/steps that exist as part of level, not manually placed. Maybe they can
-    be destroyed by boulders.
-
-[ ] Experiment with being able to push enemies horizontally with small boulder
-[ ] Experimenting with being able to attack enemies from the side
+[ ] Experiment with Ladders/steps that exist as part of level, not manually placed. 
+		Maybe they can be destroyed by boulders.
 
 [ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
 	  meter without restoring level).
@@ -45,6 +45,8 @@
 [ ] Particles when mining/destroying block
 
 [ ] Lighting
+[ ] Animation pass 
+[ ] Rounding corners of exposed blocks
 
 [ ] Some blocks are not smoothly covered then crushed when being crushed; non-entities
     in particular

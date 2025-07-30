@@ -7,6 +7,8 @@
 #define G_TILEMAP_TOKENS_MAX 256
 #define G_LEVEL_ENEMIES_MAX 32
 #define G_LEVEL_BOULDERS_MAX 16
+#define G_AIR_ENEMY_HEALTH_MAX 1
+#define G_GROUND_ENEMY_HEALTH_MAX 2
 
 //
 // Input
@@ -146,7 +148,7 @@ struct G_Entity {
   V2F32 pos; // @Note: Unscaled
   G_TransitionV2F32 move;
   U32 tilemap_idx;
-  B32 dead;
+  S32 health;
 };
 
 struct G_EntityMoveResult {
@@ -158,6 +160,7 @@ struct G_EntityMoveResult {
 struct G_EntityMineResult {
   G_TileToken dst_token;
   U32 dst_idx;
+  B32 mined;
 };
 
 struct G_EntityGravityResult {
@@ -272,6 +275,7 @@ function G_Level g_level_from_tilemap(G_TileMap *map);
 
 // Entities
 function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);
+// @Todo: Rename to reflect that it can be used to mine or attack.
 function G_EntityMineResult g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy);
 function G_EntityCrushResult g_entity_crush(G_Entity *entity, G_Level *level);
 function G_EntityGravityResult g_entity_apply_gravity(G_Entity *entity, G_Level *level);
