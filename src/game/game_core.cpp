@@ -667,6 +667,69 @@ g_entity_crush(G_Entity *entity, G_Level *level)
   return result;
 }
 
+function void
+g_entity_sink(G_Entity *entity, G_Level *level)
+{
+  B32 entity_moving = entity->move.active;
+  if (!entity_moving) {
+    G_TileMap *map = level->map;
+    
+    V2F32 delta = v2f32(0, 1);
+    
+    S32 map_width  = map->width;
+    S32 map_height = map->height;
+    
+    V2F32 ent_pos = entity->pos;
+    V2F32 dst_pos = v2f32_add(ent_pos, delta);
+    
+    F32 biased_dst_x = dst_pos.x + 0.5f;
+    F32 biased_dst_y = dst_pos.y + 0.5f;
+    
+    B32 dst_in_map = (biased_dst_x >= 0 && biased_dst_x < map_width &&
+                      biased_dst_y >= 0 && biased_dst_y < map_height);
+    if (dst_in_map) {
+      S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
+      
+      G_TileToken src_tile = G_TileToken_Empty; 
+      G_TileToken ent_tile = map->tokens[ent_idx];
+      
+      // @Todo: This is garbage
+      U32 dst_idx = ent_idx;
+      G_TileToken dst_tile = map->tokens[dst_idx];
+      S32 drop_count = 0;
+      for (;;) {
+        dst_idx += map_width;
+        dst_tile = map->tokens[dst_idx];
+        if (dst_tile != G_TileToken_Lava) {
+          break;
+        }
+        drop_count += 1;
+        dst_pos.y += 1;
+      }
+      
+      // @Todo: Decrement drop count?
+      dst_idx -= map_width;
+      dst_tile = map->tokens[dst_idx];
+      dst_pos.y -= 1;
+      
+      F32 tr_speed = 6.25f;
+      if (ent_tile == G_TileToken_Player) {
+        tr_speed = 1.2f;
+      }
+      G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
+      
+      if (drop_count > 0) {
+        g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
+                                 tr_speed, tr_curve);
+        
+        map->tokens[ent_idx] = src_tile;
+        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] | (U32)ent_tile);
+        entity->tilemap_idx = dst_idx;
+      }
+    }
+  }
+}
+
 function G_EntityGravityResult
 g_entity_apply_gravity(G_Entity *entity, G_Level *level)
 {
@@ -702,7 +765,7 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       for (;;) {
         dst_idx += map_width;
         dst_tile = map->tokens[dst_idx];
-        if (!(dst_tile == G_TileToken_Empty || dst_tile == G_TileToken_Lava)) {
+        if (dst_tile != G_TileToken_Empty) {
           break;
         }
         drop_count += 1;
@@ -713,11 +776,6 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       dst_idx -= map_width;
       dst_tile = map->tokens[dst_idx];
       dst_pos.y -= 1;
-      
-      if (dst_tile == G_TileToken_Lava) {
-        ent_tile = G_TileToken_Lava;
-      }
-      
       
       U32 landed_on_idx = dst_idx + map_width; // @Note: Probably need to clamp.
       G_TileToken landed_on_tile = map->tokens[landed_on_idx];
@@ -797,6 +855,9 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   }
   
   G_EntityGravityResult gravity = g_entity_apply_gravity(player, level);
+  if (gravity.landed_on_token == G_TileToken_Lava) {
+    g_entity_sink(player, level);
+  }
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
   // If the player is on the last row of the level, he's on lava, so he loses.
@@ -823,6 +884,9 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_Entity *boulder = &small_boulders[boulder_idx];
     
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
+    if (gravity.landed_on_token == G_TileToken_Lava) {
+      g_entity_sink(boulder, level);
+    }
     U32 landed_on_idx = gravity.landed_on_idx;
     G_TileToken landed_on_token = gravity.landed_on_token;
     
@@ -830,7 +894,10 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_Entity *enemy = g_air_enemy_from_tilemap_idx(level, landed_on_idx);
     if (landed_on_enemy && absf32(enemy->pos.y - boulder->pos.y) <= 1.05f) {
       G_Entity *ent = g_air_enemy_from_tilemap_idx(level, landed_on_idx);
-      g_entity_apply_gravity(ent, level);
+      gravity = g_entity_apply_gravity(ent, level);
+      if (gravity.landed_on_token == G_TileToken_Lava) {
+        g_entity_sink(ent, level);
+      }
     }
     
     g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
@@ -844,6 +911,9 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_Entity *boulder = &large_boulders[boulder_idx];
     
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
+    if (gravity.landed_on_token == G_TileToken_Lava) {
+      g_entity_sink(player, level);
+    }
     if (gravity.drop_count >= 1) {
       should_crush = 1;
     }
@@ -883,11 +953,15 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    G_EntityGravityResult gravity_result = g_entity_apply_gravity(enemy, level);
+    G_EntityGravityResult gravity = g_entity_apply_gravity(enemy, level);
+    if (gravity.landed_on_token == G_TileToken_Lava) {
+      g_entity_sink(player, level);
+    }
+    
     g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
     
     B32 enemy_on_player = absf32(player->pos.y - enemy->pos.y) <= 1.05;
-    if ((gravity_result.landed_on_token & G_TileToken_Player) && enemy_on_player) {
+    if ((gravity.landed_on_token & G_TileToken_Player) && enemy_on_player) {
       result.lost = 1;
       break;
     }
@@ -1014,7 +1088,7 @@ g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
     spr_y = scale * (token_idx / map_width);
     
     G_TileToken token = tokens[token_idx];
-    if (token == G_TileToken_Lava) {
+    if (token & G_TileToken_Lava) {
       g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
     }
   }
