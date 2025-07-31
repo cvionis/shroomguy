@@ -216,9 +216,10 @@ entry_point(void)
     G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
     G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,
     G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,
+    G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,
   };
   map.width = 8;
-  map.height = 6;
+  map.height = 7;
   
   MemoryCopy(map.tokens, tokens, map.width*map.height*sizeof(G_TileToken));
   

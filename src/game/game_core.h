@@ -121,11 +121,13 @@ enum G_TileToken {
   G_TileToken_OreT0        = (1 << 4),
   G_TileToken_OreT1        = (1 << 5),
   G_TileToken_OreT2        = (1 << 6),
-  G_TileToken_BoulderSmall = (1 << 7),
-  G_TileToken_BoulderLarge = (1 << 8),
-  G_TileToken_EnemyGround  = (1 << 9),
-  G_TileToken_EnemyAir     = (1 << 10),
-  G_TileToken_Player       = (1 << 11),
+  G_TileToken_Bedrock      = (1 << 7),
+  G_TileToken_Lava         = (1 << 8),
+  G_TileToken_BoulderSmall = (1 << 9),
+  G_TileToken_BoulderLarge = (1 << 10),
+  G_TileToken_EnemyGround  = (1 << 11),
+  G_TileToken_EnemyAir     = (1 << 12),
+  G_TileToken_Player       = (1 << 13),
 };
 
 enum G_TileMapFlags {
@@ -168,6 +170,7 @@ struct G_EntityGravityResult {
   U32 ent_idx;
   U32 dst_idx;
   U32 landed_on_idx;
+  B32 lava;
   G_TileToken dst_token;
   G_TileToken landed_on_token;
 };

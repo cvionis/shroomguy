@@ -702,15 +702,22 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       for (;;) {
         dst_idx += map_width;
         dst_tile = map->tokens[dst_idx];
-        if (dst_tile != G_TileToken_Empty) {
+        if (!(dst_tile == G_TileToken_Empty || dst_tile == G_TileToken_Lava)) {
           break;
         }
         drop_count += 1;
         dst_pos.y += 1;
       }
+      
+      // @Todo: Decrement drop count?
       dst_idx -= map_width;
       dst_tile = map->tokens[dst_idx];
       dst_pos.y -= 1;
+      
+      if (dst_tile == G_TileToken_Lava) {
+        ent_tile = G_TileToken_Lava;
+      }
+      
       
       U32 landed_on_idx = dst_idx + map_width; // @Note: Probably need to clamp.
       G_TileToken landed_on_tile = map->tokens[landed_on_idx];
@@ -789,8 +796,15 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     }
   }
   
-  g_entity_apply_gravity(player, level);
+  G_EntityGravityResult gravity = g_entity_apply_gravity(player, level);
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
+  
+  // If the player is on the last row of the level, he's on lava, so he loses.
+  B32 player_on_last_row = (player->pos.y >= level->map->height-1);
+  if (player_on_last_row) {
+    player->health = 0;
+    result.lost = 1;
+  }
   
   U32 player_tile_idx = player->tilemap_idx;
   U32 below_tile_idx = Clamp(player_tile_idx+map->width, 0, map->width*map->height) ;
@@ -982,6 +996,31 @@ g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale)
 }
 
 function void
+g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
+{
+  U32 map_width = map->width;
+  U32 map_height = map->height;
+  G_TileToken *tokens = map->tokens;
+  U32 token_count = map_width*map_height;
+  
+  F32 spr_x;
+  F32 spr_y;
+  F32 scale = 64; // @Note: Temporary
+  G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/lava.png"));
+  
+  // All other tiles
+  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+    spr_x = scale * (token_idx % map_width);
+    spr_y = scale * (token_idx / map_width);
+    
+    G_TileToken token = tokens[token_idx];
+    if (token == G_TileToken_Lava) {
+      g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
+    }
+  }
+}
+
+function void
 g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 {
   U32 map_width = map->width;
@@ -1028,6 +1067,9 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       }break;
       case G_TileToken_OreT2: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
+      }break;
+      case G_TileToken_Bedrock: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
       }break;
     }
     
@@ -1117,4 +1159,6 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     }
   }
   
+  // Lava
+  g_render_lava(renderer, assets, level->map);
 }
