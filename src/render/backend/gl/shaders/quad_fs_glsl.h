@@ -90,6 +90,6 @@ char *quad_fs_glsl =
 // Compute final fragment color 
 "  vec4 gradient_color = mix(v_c0, v_c1, color_h_t) * mix(v_c2, v_c3, color_v_t);\n"
 "  vec4 fill_color = mix(color, vec4(border_factor), v_border_thickness);\n"
-"  frag_color = vec4(0.3,0.3,0.6,1.0) * fill_color * gradient_color * sdf_factor;\n"
+"  frag_color = fill_color * gradient_color * sdf_factor;\n"
 "}\n";
 

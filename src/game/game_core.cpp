@@ -503,107 +503,6 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
   return result;
 }
 
-function G_EntityMineResult
-g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy)
-{
-  G_EntityMineResult result = {0};
-  
-  B32 entity_moving = entity->move.active;
-  B32 entity_can_mine = mine->v != 0;
-  
-  if (!entity_moving && entity_can_mine) {
-    G_TileMap *map = level->map;
-    V2F32 delta = v2f32((F32)dx, (F32)dy);
-    
-    S32 map_width  = map->width;
-    S32 map_height = map->height;
-    
-    V2F32 ent_pos = entity->pos;
-    V2F32 dst_pos = v2f32_add(ent_pos, delta);
-    
-    F32 biased_dst_x = dst_pos.x + 0.5f;
-    F32 biased_dst_y = dst_pos.y + 0.5f;
-    
-    B32 dst_in_map = (biased_dst_x >= 0 && biased_dst_x < map_width &&
-                      biased_dst_y >= 0 && biased_dst_y < map_height);
-    if (dst_in_map) {
-      S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
-      S32 dst_idx = ent_idx + (dx + dy * map_width);
-      
-      
-      G_TileToken ent_tile = map->tokens[ent_idx];
-      G_TileToken dst_tile = map->tokens[dst_idx];
-      
-      B32 mined = 0;
-      
-      if (dst_tile & G_TileToken_Dirt) {
-        map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->v -= 1;
-        mined = 1;
-      }
-      else if (dst_tile & G_TileToken_StoneT1) {
-        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
-        mined = 1;
-      }
-      else if (dst_tile & G_TileToken_StoneT0) {
-        map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->v -= 1;
-        mined = 1;
-      }
-      else if (dst_tile & G_TileToken_OreT2) {
-        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
-        mined = 1;
-      }
-      else if (dst_tile & G_TileToken_OreT1) {
-        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
-        mined = 1;
-      }
-      else if (dst_tile & G_TileToken_OreT0) {
-        map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->ore_collected += 1;
-        mine->v -= 1;
-        mined = 1;
-      }
-      
-      if (ent_tile & G_TileToken_Player) {
-        G_Entity *enemy = 0;
-        if (dst_tile & G_TileToken_EnemyGround) {
-          enemy = g_ground_enemy_from_tilemap_idx(level, dst_idx);
-        }
-        if (dst_tile & G_TileToken_EnemyAir) {
-          enemy = g_air_enemy_from_tilemap_idx(level, dst_idx);
-        }
-        
-        if (enemy) {
-          if (mine->v > 0) {
-            enemy->health -= 1;
-            mine->v -= 1;
-            if (enemy->health <= 0) {
-              mined = 1;
-              map->tokens[dst_idx] = G_TileToken_Empty;
-            }
-          }
-        }
-      }
-      
-      //mine->v = Max(mine->v, 0);
-      
-      result.mined = mined;
-      result.dst_idx = dst_idx;
-      result.dst_token = dst_tile;
-    }
-  }
-  
-  return result;
-}
-
-//
-// Levels
-//
-
 function G_EntityCrushResult
 g_entity_crush(G_Entity *entity, G_Level *level)
 {
@@ -719,6 +618,8 @@ g_entity_sink(G_Entity *entity, G_Level *level)
       G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
       
       if (drop_count > 0) {
+        // @Todo: Should entity health be set to 0 when sinking?
+        //entity->health = 0;
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  tr_speed, tr_curve);
         
@@ -804,6 +705,120 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
   return result;
 }
 
+function G_EntityMineResult
+g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy)
+{
+  G_EntityMineResult result = {0};
+  
+  B32 entity_moving = entity->move.active;
+  B32 entity_can_mine = mine->v != 0;
+  
+  if (!entity_moving && entity_can_mine) {
+    G_TileMap *map = level->map;
+    V2F32 delta = v2f32((F32)dx, (F32)dy);
+    
+    S32 map_width  = map->width;
+    S32 map_height = map->height;
+    
+    V2F32 ent_pos = entity->pos;
+    V2F32 dst_pos = v2f32_add(ent_pos, delta);
+    
+    F32 biased_dst_x = dst_pos.x + 0.5f;
+    F32 biased_dst_y = dst_pos.y + 0.5f;
+    
+    B32 dst_in_map = (biased_dst_x >= 0 && biased_dst_x < map_width &&
+                      biased_dst_y >= 0 && biased_dst_y < map_height);
+    if (dst_in_map) {
+      S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
+      S32 dst_idx = ent_idx + (dx + dy * map_width);
+      
+      
+      G_TileToken ent_tile = map->tokens[ent_idx];
+      G_TileToken dst_tile = map->tokens[dst_idx];
+      
+      B32 mined = 0;
+      
+      if (dst_tile & G_TileToken_Dirt) {
+        map->tokens[dst_idx] = G_TileToken_Empty;
+        mine->v -= 1;
+        mined = 1;
+      }
+      else if (dst_tile & G_TileToken_StoneT1) {
+        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
+        mine->v -= 1;
+        mined = 1;
+      }
+      else if (dst_tile & G_TileToken_StoneT0) {
+        map->tokens[dst_idx] = G_TileToken_Empty;
+        mine->v -= 1;
+        mined = 1;
+      }
+      else if (dst_tile & G_TileToken_OreT2) {
+        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
+        mine->v -= 1;
+        mined = 1;
+      }
+      else if (dst_tile & G_TileToken_OreT1) {
+        map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
+        mine->v -= 1;
+        mined = 1;
+      }
+      else if (dst_tile & G_TileToken_OreT0) {
+        map->tokens[dst_idx] = G_TileToken_Empty;
+        mine->ore_collected += 1;
+        mine->v -= 1;
+        mined = 1;
+      }
+      
+      if (ent_tile & G_TileToken_Player) {
+        G_Entity *enemy = 0;
+        if (dst_tile & G_TileToken_EnemyGround) {
+          enemy = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+        }
+        if (dst_tile & G_TileToken_EnemyAir) {
+          enemy = g_air_enemy_from_tilemap_idx(level, dst_idx);
+        }
+        
+        if (enemy) {
+          if (mine->v > 0) {
+            enemy->health -= 1;
+            mine->v -= 1;
+            if (enemy->health <= 0) {
+              mined = 1;
+              map->tokens[dst_idx] = G_TileToken_Empty;
+            }
+          }
+        }
+      }
+      
+      //mine->v = Max(mine->v, 0);
+      
+      result.mined = mined;
+      result.dst_idx = dst_idx;
+      result.dst_token = dst_tile;
+    }
+  }
+  
+  return result;
+}
+
+//
+// Levels
+//
+
+function void
+g_level_refresh_entities(G_Level *level)
+{
+  G_TileMap *map = level->map;
+  
+  level->player = g_player_from_tilemap(map);
+  level->ground_enemies_count = g_ground_enemies_from_tilemap(level->ground_enemies, map);
+  level->air_enemies_count = g_air_enemies_from_tilemap(level->air_enemies, map);
+  G_LevelBoulderInfo boulders = g_boulders_from_tilemap(level->small_boulders, level->large_boulders, map);
+  level->small_boulders_count = boulders.small_count;
+  level->large_boulders_count = boulders.large_count;
+}
+
 function G_LevelSimResult
 g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time)
 {
@@ -834,7 +849,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     G_TileToken dst_token = mine_result.dst_token;
-    B32 mined = mine_result.mined;
     
     B32 dst_is_enemy = 0;
     if (dst_token == G_TileToken_EnemyGround) {
@@ -844,12 +858,12 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       dst_is_enemy = 1;
     }
     
-    // Move to the mined tile if there is not an entity above that tile.
+    // Move to the mined tile if there is not an entity sitting on the mined tile.
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    if (!(a || b || c) && mined) {
+    if (!(a || b || c) && mine_result.mined) {
       g_entity_move(player, level, dx, 0, tr);
     }
   }
@@ -953,17 +967,19 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
     G_Entity *enemy = &ground_enemies[enemy_idx];
     
-    G_EntityGravityResult gravity = g_entity_apply_gravity(enemy, level);
-    if (gravity.landed_on_token == G_TileToken_Lava) {
-      g_entity_sink(player, level);
-    }
-    
-    g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
-    
-    B32 enemy_on_player = absf32(player->pos.y - enemy->pos.y) <= 1.05;
-    if ((gravity.landed_on_token & G_TileToken_Player) && enemy_on_player) {
-      result.lost = 1;
-      break;
+    if (enemy->health) {
+      G_EntityGravityResult gravity = g_entity_apply_gravity(enemy, level);
+      if (gravity.landed_on_token == G_TileToken_Lava) {
+        g_entity_sink(enemy, level);
+      }
+      
+      g_transition_v2f32_update(&enemy->move, &enemy->pos, delta_time);
+      
+      B32 enemy_on_player = absf32(player->pos.y - enemy->pos.y) <= 1.05;
+      if ((gravity.landed_on_token & G_TileToken_Player) && enemy_on_player) {
+        result.lost = 1;
+        break;
+      }
     }
   }
   

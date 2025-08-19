@@ -57,12 +57,8 @@ update(void)
   if (g_key_pressed(&game.input, G_Key_Z)) {
     G_TileMap *map = game.level.map;
     g_undo_pop(&game.undo, map);
-    game.level.player = g_player_from_tilemap(map);
-    game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
-    game.level.air_enemies_count = g_air_enemies_from_tilemap(game.level.air_enemies, map);
-    G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
-    game.level.small_boulders_count = boulders.small_count;
-    game.level.large_boulders_count = boulders.large_count;
+    
+    g_level_refresh_entities(&game.level);
     
     game.mine.v += 1;
     game.mine.v = Min(game.mine.v, game.mine.max);
@@ -74,12 +70,8 @@ update(void)
   else if (g_key_pressed(&game.input, G_Key_R)) {
     G_TileMap *map = game.level.map;
     g_undo_restart(&game.undo, map);
-    game.level.player = g_player_from_tilemap(map);
-    game.level.ground_enemies_count = g_ground_enemies_from_tilemap(game.level.ground_enemies, map);
-    game.level.air_enemies_count = g_air_enemies_from_tilemap(game.level.air_enemies, map);
-    G_LevelBoulderInfo boulders = g_boulders_from_tilemap(game.level.small_boulders, game.level.large_boulders, map);
-    game.level.small_boulders_count = boulders.small_count;
-    game.level.large_boulders_count = boulders.large_count;
+    
+    g_level_refresh_entities(&game.level);
     
     game.mine.v = game.mine.max;
     game.mine.ore_collected = 0;
