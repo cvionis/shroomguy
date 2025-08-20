@@ -415,6 +415,7 @@ g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_Ti
   return result;
 }
 
+// @Todo: Is there a good reason we don't set the level's 'map' member in here?
 function G_Level
 g_level_from_tilemap(G_TileMap *map) 
 {
@@ -619,7 +620,6 @@ g_entity_sink(G_Entity *entity, G_Level *level)
       
       if (drop_count > 0) {
         // @Todo: Should entity health be set to 0 when sinking?
-        //entity->health = 0;
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  tr_speed, tr_curve);
         
@@ -655,7 +655,6 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
                       biased_dst_y >= 0 && biased_dst_y < map_height);
     if (dst_in_map) {
       S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
-      
       G_TileToken src_tile = G_TileToken_Empty; 
       G_TileToken ent_tile = map->tokens[ent_idx];
       
@@ -1251,4 +1250,32 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
   
   // Lava
   g_render_lava(renderer, assets, level->map);
+}
+
+//
+// Map storage and serialization
+//
+
+function G_MapStorage 
+g_maps_read(String8 path) 
+{
+  (void)path;
+  G_MapStorage result = {0};
+  return result;
+}
+
+function void 
+g_maps_write(G_MapStorage *maps, String8 path) 
+{
+  (void*)maps;
+  (void)path;
+}
+
+function G_TileMap 
+g_maps_get_copy(G_MapStorage *maps, U32 map_idx) 
+{
+  (void*)maps;
+  (void)map_idx;
+  G_TileMap result = {0};
+  return result;
 }

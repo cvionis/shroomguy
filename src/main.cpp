@@ -19,13 +19,18 @@ struct GameState {
   OS_Handle window;
   R_Context *renderer;
   R_Font *font;
-  B32 quit;
+  G_AssetContext *assets;
+  
+  U32 current_map_idx; 
+  G_TileMap current_map;
+  G_MapStorage maps;
   
   G_UndoContext undo;
-  G_AssetContext *assets;
   G_Level level;
   G_Input input;
   G_MineState mine;
+  
+  B32 quit;
   B32 lost;
 };
 
@@ -86,7 +91,6 @@ update(void)
     }
   }
 }
-
 function void 
 render(void)
 {
@@ -175,48 +179,44 @@ entry_point(void)
   game.font = r_font_ttf_parse_and_bake(game.arena, S8("../data/fonts/Ithaca.ttf"));
   game.assets = g_assets_alloc(S8("../data"));
   
-  // Temp init
-  G_TileMap map = {0};
-#if 0
-  G_TileToken tokens[] = {
-    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Player,G_TileToken_EnemyGround,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
-  };
-  map.width = 6;
-  map.height = 6;
-#endif
-#if 0
-  G_TileToken tokens[] = {
-    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_BoulderSmall,G_TileToken_Player,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_BoulderLarge,G_TileToken_Dirt,
-    G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_StoneT1,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,
-  };
-  map.width = 8;
-  map.height = 6;
-#endif
-  G_TileToken tokens[] = {
-    G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_Player,G_TileToken_BoulderSmall,G_TileToken_BoulderSmall,G_TileToken_EnemyAir,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_BoulderLarge,G_TileToken_Empty,
-    G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
-    G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
-    G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,
-    G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,
-    G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,
-  };
-  map.width = 8;
-  map.height = 7;
+  // @Note: Temporary bootstrapping of map file
+  {
+    U32 width = 8;
+    U32 height = 7;
+    
+    G_TileToken tokens[] = {
+      G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,
+      G_TileToken_Player,G_TileToken_BoulderSmall,G_TileToken_BoulderSmall,G_TileToken_EnemyAir,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_BoulderLarge,G_TileToken_Empty,
+      G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,
+      G_TileToken_StoneT1,G_TileToken_Empty,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_EnemyGround,G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,
+      G_TileToken_Dirt,G_TileToken_EnemyAir,G_TileToken_Dirt,G_TileToken_StoneT1,G_TileToken_OreT2,G_TileToken_Dirt,G_TileToken_BoulderSmall,G_TileToken_StoneT1,
+      G_TileToken_Dirt,G_TileToken_Empty,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_Dirt,G_TileToken_OreT2,G_TileToken_Dirt,
+      G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Lava,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,G_TileToken_Bedrock,
+    };
+    
+    G_TileMap *map = &game.maps.maps[0];
+    map->width = width;
+    map->height = height;
+    MemoryCopy(map->tokens, tokens, width*height*sizeof(G_TileToken));
+  }
   
-  MemoryCopy(map.tokens, tokens, map.width*map.height*sizeof(G_TileToken));
+  g_maps_write(&game.maps, S8("../data/maps/default.maps"));
   
-  game.level = g_level_from_tilemap(&map);
-  game.level.map = &map;
+#if 0
+  game.maps = g_maps_read(S8("../data/maps/default.maps"));
+  if (game.maps.count > 0) {
+    U32 last_played_idx = game.maps.last_played_map_idx;
+    G_TileMap last_played_map = g_maps_get_copy(&game.maps, last_played_idx);
+    
+    game.current_map_idx = last_played_idx;
+    game.current_map = last_played_map;
+    game.level = g_level_from_tilemap(&game.current_map);
+    game.level.map = &game.current_map;
+  }
+  else {
+    // @Todo: Show an error MessageBox?
+  }
+#endif
   
   game.undo = g_undo_make();
   
@@ -228,6 +228,8 @@ entry_point(void)
     update();
     render();
   }
+  
+  //g_maps_write(&game.maps, S8("../data/maps/default.maps"));
   
   g_undo_release(&game.undo);
   g_assets_release(game.assets);

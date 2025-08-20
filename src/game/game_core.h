@@ -246,6 +246,27 @@ struct G_MineState {
   S32 ore_collected;
 };
 
+// 
+// Map storage and serialization
+//
+
+// @Note: array of maps should not be changed directly by gameplay code; only editor code.
+// @Todo: You could also just read this into a big string and make sure no padding is 
+// needed between elements for good alignment and specify that the struct should have no
+// padding, then just read it directly into the struct.
+#define G_MAPS_MAX 32
+struct G_MapStorage {
+  U32 last_played_map_idx;
+  U32 count;
+  
+  G_TileMap maps[G_MAPS_MAX];
+  B32 solved[G_MAPS_MAX];
+};
+
+function G_MapStorage g_maps_read(String8 path);
+function void g_maps_write(G_MapStorage *maps, String8 path); 
+function G_TileMap g_maps_get_copy(G_MapStorage *maps, U32 map_idx);
+
 //
 // Misc.
 //
