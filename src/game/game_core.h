@@ -138,8 +138,8 @@ enum G_TileMapFlags {
 struct G_TileMap {
   U32 width;
   U32 height;
-  G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
   G_TileMapFlags flags;
+  G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
 };
 
 //
@@ -260,7 +260,6 @@ struct G_MapStorage {
   U32 count;
   
   G_TileMap maps[G_MAPS_MAX];
-  B32 solved[G_MAPS_MAX];
 };
 
 function G_MapStorage g_maps_read(String8 path);

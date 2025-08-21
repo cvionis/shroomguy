@@ -198,11 +198,11 @@ entry_point(void)
     map->width = width;
     map->height = height;
     MemoryCopy(map->tokens, tokens, width*height*sizeof(G_TileToken));
+    
+    game.maps.count = 1;
+    g_maps_write(&game.maps, S8("../data/maps/default.maps"));
   }
   
-  g_maps_write(&game.maps, S8("../data/maps/default.maps"));
-  
-#if 0
   game.maps = g_maps_read(S8("../data/maps/default.maps"));
   if (game.maps.count > 0) {
     U32 last_played_idx = game.maps.last_played_map_idx;
@@ -216,7 +216,6 @@ entry_point(void)
   else {
     // @Todo: Show an error MessageBox?
   }
-#endif
   
   game.undo = g_undo_make();
   

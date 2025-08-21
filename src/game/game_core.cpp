@@ -1256,26 +1256,99 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 // Map storage and serialization
 //
 
+/*
+
+@Todo: Pack
+Maps file format (temp):
+
+last_played_idx: 4bytes
+maps_count: 4bytes
+
+map0_flags: 4bytes
+map0_width: 4bytes
+map0_height: 4bytes
+map0_tokens: 4bytes[G_TILEMAP_TOKENS_MAX]
+
+...
+
+*/
+
 function G_MapStorage 
 g_maps_read(String8 path) 
 {
-  (void)path;
   G_MapStorage result = {0};
+  
+  TempArena scratch = arena_scratch_begin(0,0);
+  {
+    String8 str = os_file_read(scratch.arena, path);
+    if (str.count > 0) {
+      U8 *pos = str.data;
+      
+      MemoryCopy(&result.last_played_map_idx, pos, sizeof(result.last_played_map_idx));
+      pos += sizeof(result.last_played_map_idx);
+      
+      MemoryCopy(&result.count, pos, sizeof(result.count));
+      pos += sizeof(result.count);
+      
+      U32 maps_count = result.count;
+      for (U32 map_idx = 0; map_idx < maps_count; map_idx += 1) {
+        G_TileMap *map = &result.maps[map_idx];
+        
+        MemoryCopy(&map->width, pos, sizeof(map->width));
+        pos += sizeof(map->width);
+        
+        MemoryCopy(&map->height, pos, sizeof(map->height));
+        pos += sizeof(map->height);
+        
+        MemoryCopy(&map->flags, pos, sizeof(map->flags));
+        pos += sizeof(map->flags);
+        
+        U32 tokens_size = map->width*map->height*sizeof(G_TileToken);
+        MemoryCopy(map->tokens, pos, tokens_size);
+        pos += tokens_size;
+      }
+    }
+  }
+  arena_scratch_end(scratch);
+  
   return result;
 }
 
 function void 
 g_maps_write(G_MapStorage *maps, String8 path) 
 {
-  (void*)maps;
-  (void)path;
+  FILE *f = fopen((char *)path.data, "wb");
+  if (f) {
+    U32 last_played_map_idx = maps->last_played_map_idx;
+    fwrite(&last_played_map_idx, sizeof(last_played_map_idx), 1, f);
+    
+    U32 maps_count = maps->count;
+    fwrite(&maps_count, sizeof(maps_count), 1, f);
+    
+    for (U32 map_idx = 0; map_idx < maps_count; map_idx += 1) {
+      G_TileMap *map = &maps->maps[map_idx];
+      
+      U32 width = map->width;
+      U32 height = map->height;
+      
+      fwrite(&width, sizeof(width), 1, f);
+      fwrite(&height, sizeof(height), 1, f);
+      fwrite(&map->flags, sizeof(map->flags), 1, f);
+      
+      U32 tokens_size = width*height*sizeof(G_TileToken);
+      fwrite(map->tokens, tokens_size, 1, f);
+      
+      fclose(f);
+    }
+  }
 }
 
 function G_TileMap 
 g_maps_get_copy(G_MapStorage *maps, U32 map_idx) 
 {
-  (void*)maps;
-  (void)map_idx;
   G_TileMap result = {0};
+  if (map_idx >= 0 && map_idx < G_MAPS_MAX) {
+    MemoryCopy(&result, &maps->maps[map_idx], sizeof(G_TileMap));
+  }
   return result;
 }
