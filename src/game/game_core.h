@@ -250,6 +250,9 @@ struct G_MineState {
 // Map storage and serialization
 //
 
+// @Note: The only time the maps array should be changed is in editor mode or when 
+// a level is unlocked/beaten.
+
 // @Note: array of maps should not be changed directly by gameplay code; only editor code.
 // @Todo: You could also just read this into a big string and make sure no padding is 
 // needed between elements for good alignment and specify that the struct should have no
@@ -258,7 +261,6 @@ struct G_MineState {
 struct G_MapStorage {
   U32 last_played_map_idx;
   U32 count;
-  
   G_TileMap maps[G_MAPS_MAX];
 };
 

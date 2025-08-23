@@ -91,6 +91,7 @@ update(void)
     }
   }
 }
+
 function void 
 render(void)
 {
@@ -179,6 +180,7 @@ entry_point(void)
   game.font = r_font_ttf_parse_and_bake(game.arena, S8("../data/fonts/Ithaca.ttf"));
   game.assets = g_assets_alloc(S8("../data"));
   
+#if 0
   // @Note: Temporary bootstrapping of map file
   {
     U32 width = 8;
@@ -202,6 +204,7 @@ entry_point(void)
     game.maps.count = 1;
     g_maps_write(&game.maps, S8("../data/maps/default.maps"));
   }
+#endif
   
   game.maps = g_maps_read(S8("../data/maps/default.maps"));
   if (game.maps.count > 0) {
