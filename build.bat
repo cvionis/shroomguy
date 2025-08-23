@@ -61,11 +61,16 @@ set linker_flags=/link %freetype%\build\freetype.lib /ignore:4099 /INCREMENTAL:n
 
 :: --- Build targets ------------------------------------------------------
 set targets=
-set targets=%targets% %root%\src\*.cpp
+set targets=%targets% %root%\src\main.cpp
 
-:: --- Compile and link everything ----------------------------------------
+:: --- Compile and link the main program  ---------------------------------
 pushd %root%\build
 cl.exe %compiler_flags% %includes% %targets% %linker_flags%
+
+:: --- Compile and link the editor ----------------------------------------
+set editor_flags=/Fe:editor.exe /nologo /FC /Zi /diagnostics:caret /std:c++17 
+set editor_flags=%editor_flags% %cl_optimize_flags% %cl_build_flags%
+cl.exe %editor_flags% %includes% %root%\src\editor_main.cpp %linker_flags%
 popd 
 
 :: --- Unset variables ----------------------------------------------------
