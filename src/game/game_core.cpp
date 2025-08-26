@@ -1112,10 +1112,10 @@ g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 function void
 g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 {
-  U32 map_width = map->width;
-  U32 map_height = map->height;
+  S32 map_width = map->width;
+  S32 map_height = map->height;
   G_TileToken *tokens = map->tokens;
-  U32 token_count = map_width*map_height;
+  S32 token_count = map_width*map_height;
   
   F32 spr_x;
   F32 spr_y;
@@ -1123,7 +1123,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
   G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
   
   // Background tiles
-  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+  for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     spr_x = scale * (token_idx % map_width);
     spr_y = scale * (token_idx / map_width);
     
@@ -1131,7 +1131,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
   }
   
   // All other tiles
-  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+  for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
     
     spr_x = scale * (token_idx % map_width);
