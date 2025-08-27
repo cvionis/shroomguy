@@ -36,6 +36,35 @@ struct ED_ChoiceMenu {
   S32 selected_choice_idx = -1;
 };
 
+enum ED_ResizeDirection {
+  ED_ResizeDirection_None = -1,
+  ED_ResizeDirection_Left,
+  ED_ResizeDirection_Right,
+  ED_ResizeDirection_Top,
+  ED_ResizeDirection_Bottom,
+  ED_ResizeDirection_COUNT,
+};
+
+struct ED_ResizeOption {
+  RectF32 rect;
+};
+
+enum ED_ResizeMode {
+  ED_ResizeMode_Add,
+  ED_ResizeMode_Delete,
+};
+
+struct ED_ResizeMenu {
+  F32 base_x;
+  F32 base_y;
+  F32 square_size;
+  
+  ED_ResizeMode mode;
+  ED_ResizeOption options[ED_ResizeDirection_COUNT];
+  ED_ResizeDirection selected_direction = ED_ResizeDirection_None;
+  ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
+};
+
 struct ED_Context {
   B32 quit;
   
@@ -53,6 +82,7 @@ struct ED_Context {
   S32 selected_tile_idx = -1;
   
   ED_ChoiceMenu choice_menu;
+  ED_ResizeMenu resize_menu;
   ED_View view;
 };
 
@@ -152,7 +182,7 @@ ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input, ED_View *view)
   }
   
   if (hovered_choice_idx >= 0 && hovered_choice_idx < ED_CHOICES_COUNT) {
-    menu->hovered_choice_idx = hovered_choice_idx;
+    menu->hovered_choice_idx = hovered_choice_idx; // @Todo: Why are we doing this here
     if (g_mouse_pressed(input, G_MouseButton_Left)) {
       menu->selected_choice_idx = hovered_choice_idx;
     }
@@ -228,6 +258,69 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
     
     V2F32 text_pos = v2f32(spr_x + scale*1.4f, spr_y + pad_y*2);
     r_text(renderer, keybind_str, font, 32, text_pos, text_color, 0);
+  }
+}
+
+function void
+ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
+{
+  F32 mx = input->mouse.x;
+  F32 my = input->mouse.y;
+  
+  ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
+  
+  for (S32 option_idx = 0; option_idx < 4; option_idx += 1) {
+    RectF32 rect = menu->options[option_idx].rect;
+    
+    B32 mouse_in_option = (mx >= rect.x0) && (my >= rect.y0) && (mx < rect.x1) && (my < rect.y1);
+    if (mouse_in_option) {
+      hovered_direction = (ED_ResizeDirection)option_idx;
+    }
+  }
+  
+  menu->hovered_direction = hovered_direction;
+  if (g_mouse_pressed(input, G_MouseButton_Left)) {
+    menu->selected_direction = hovered_direction;
+  }
+  
+  if (g_key_pressed(input, G_Key_Space)) {
+    menu->mode = (ED_ResizeMode)!(U32)menu->mode;
+  }
+}
+
+function void
+ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu)
+{
+  V4F32 square_color = v4f32(0.5f,0.58f,0.5f,1.f);
+  if (menu->mode == ED_ResizeMode_Delete) {
+    square_color = v4f32(0.58f,0.5f,0.5f,1.f);
+  }
+  
+  R_Quad quad = {0};
+  quad.uv_rect = rect_f32(0,0,1,1);
+  quad.corner_softness = 0.3f;
+  quad.radius = 3.2f;
+  
+  // @Todo: In update function, set selected_direction to ED_ResizeDirection_None.
+  
+  for (S32 option_idx = 0; option_idx < ED_ResizeDirection_COUNT; option_idx += 1) {
+    ED_ResizeOption *option = &menu->options[option_idx];
+    
+    V4F32 col = square_color;
+    if (option_idx == menu->hovered_direction) {
+      col = v4f32_sub(col, v4f32(0.1f,0.1f,0.1f,0.f));
+    }
+    if (option_idx == menu->selected_direction) {
+      col = v4f32_sub(col, v4f32(0.1f,0.1f,0.1f,0.f));
+    }
+    
+    quad.colors[0] = col;
+    quad.colors[1] = col;
+    quad.colors[2] = col;
+    quad.colors[3] = col;
+    
+    quad.rect = option->rect;
+    r_quad(renderer, &quad, 0);
   }
 }
 
@@ -572,6 +665,12 @@ ed_update(ED_Context *editor)
   ed_choice_menu_update(&editor->choice_menu, input, &editor->view);
   
   //
+  // Tilemap resizing menu interaction
+  //
+  
+  ed_resize_menu_update(&editor->resize_menu, input);
+  
+  //
   // Update the map according to selected tile in map and choice
   //
   
@@ -616,6 +715,11 @@ ed_render(ED_Context *editor)
   
   ed_choice_menu_render(tmp.arena, renderer, font, assets, &editor->choice_menu, &editor->view);
   
+  //
+  // Draw the tilemap resizing menu
+  //
+  
+  ed_resize_menu_render(renderer, &editor->resize_menu);
   
   //
   // Draw the current file and map's info
@@ -667,6 +771,34 @@ entry_point(void)
     editor.choice_menu.pad_x = 120;
     editor.choice_menu.pad_y = 8;
     editor.choice_menu.column_size = 6;
+  }
+  
+  {
+    editor.resize_menu.base_x = 120;
+    editor.resize_menu.base_y = 100;
+    editor.resize_menu.square_size = 64;
+    editor.resize_menu.mode = ED_ResizeMode_Add;
+    
+    F32 base_x = editor.resize_menu.base_x;
+    F32 base_y = editor.resize_menu.base_y;
+    
+    F32 square_x = base_x;
+    F32 square_y = base_y;
+    F32 square_size = editor.resize_menu.square_size;
+    
+    ED_ResizeOption *options = editor.resize_menu.options;
+    
+    options[ED_ResizeDirection_Left].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
+    
+    square_x = base_x + 2*square_size;
+    options[ED_ResizeDirection_Right].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
+    
+    square_x = base_x + square_size;
+    square_y = base_y - square_size;
+    options[ED_ResizeDirection_Top].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
+    
+    square_y = base_y + square_size;
+    options[ED_ResizeDirection_Bottom].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
   }
   
   while (!editor.quit) {
