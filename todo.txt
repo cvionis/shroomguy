@@ -1,3 +1,45 @@
+// TODO
+
+- Fix input (click) delay when editing the same tile twice in a row
+
+---
+STRETCH: FINISH BY END OF WEEKEND
+- Level editing
+- Level select layout and transitions
+- Animations
+- Sound
+- Finalizing gameplay decisions
+- Bug fixes and cleanup pass
+
+CAN WAIT:
+- Sensible window resizing
+- Fancy lighting and post-processing
+
+Bugs: 
+
+- Losing when mining ore underneath enemy ; this shouldn't happen.
+
+Cleanup pass:
+
+- Unifying gravity/movement/crushing/sinking codepaths (would be nice and reduce redundancy, but not really high priority).
+
+	* All do the same thing in the beginning (calculate src and dst tiles and positions)
+	  and end (starting a transition; parameters depend on whether it's moving, mining, etc.
+	  and I don't want them to be the same); and updating the tilemap.
+
+	* Maybe instead of trying to unify these functions' codepaths, you can minimize the 
+		amount of repeated code you have at the beginning and ending by having each of 
+		these functions internally call helper functions. 
+
+- Wrapping all the operations you do when undoing/redoing into a helper function
+- Making what is essentially collision detection (e.g. when visual position needs to be checked instead of position in tilemap) easier and less hacky to check. In other words,
+improving the api of entity_move, _mine, etc. (related to entity movement codepath unification)
+
+-----
+
+- I want beating one level to unlock more than one level sometimes instead of just 
+	having the player unlock a single level after another.
+
 - Add ability to flip a texture (or quad?) in either axis when drawing it
 
 - Rework animations a bit to be a little more independent of (less directly tied to) 
@@ -21,13 +63,7 @@
 
 --- 
 
-[ ] Lava
-    - Does not block movement
-		- For organic entities, check that position matches lava tile position; 
-		  if so, kill that entity. 
-
-[ ] Experiment with Ladders/steps that exist as part of level, not manually placed. 
-		Maybe they can be destroyed by boulders.
+[ ] Use & instead of == when correct in code comparing tile tokens.
 
 [ ] Undo seems a little buggy/inconsistent; invesigate (UPDATE: undoing on loss restores
 	  meter without restoring level).
@@ -35,6 +71,9 @@
 [ ] Cleanup pass
 
 [ ] Particles when mining/destroying block
+
+[ ] Experiment with Ladders/steps that exist as part of level, not manually placed. 
+		Maybe they can be destroyed by boulders.
 
 [ ] Lighting
 [ ] Animation pass 

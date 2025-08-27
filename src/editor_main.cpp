@@ -34,13 +34,61 @@ struct ED_Context {
   G_MapStorage maps;
   S32 current_map_idx;
   
-  S32 hovered_tile_idx;
-  S32 selected_tile_idx;
+  S32 hovered_tile_idx = -1;
+  S32 selected_tile_idx = -1;
+  S32 hovered_choice_idx = -1;
+  S32 selected_choice_idx = -1;
   
   ED_View view;
 };
 
 global ED_Context editor;
+
+struct ED_ChoiceEntry {
+  String8 path;
+  G_TileToken token;
+  G_Key keybind;
+};
+
+#define ED_CHOICES_COUNT 11
+global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
+  { S8("sprites/empty.png"), G_TileToken_Empty, G_Key_1 },
+  { S8("sprites/dirt.png"), G_TileToken_Dirt, G_Key_2 },
+  { S8("sprites/stone_t1.png"), G_TileToken_StoneT1, G_Key_3 },
+  { S8("sprites/ore_t2.png"), G_TileToken_OreT2, G_Key_4 },
+  { S8("sprites/bedrock.png"), G_TileToken_Bedrock, G_Key_5 },
+  { S8("sprites/lava.png"), G_TileToken_Lava, G_Key_6 },
+  { S8("sprites/boulder_small.png"), G_TileToken_BoulderSmall, G_Key_7 },
+  { S8("sprites/boulder_large.png"), G_TileToken_BoulderLarge, G_Key_8 },
+  { S8("sprites/player.png"), G_TileToken_Player, G_Key_9 },
+  { S8("sprites/enemy_ground.png"), G_TileToken_EnemyGround, G_Key_E },
+  { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_R },
+};
+
+function U32
+ed_codepoint_from_key(G_Key key)
+{
+  U32 codepoint = 0;
+  
+  if ((key >= G_Key_0) && (key <= G_Key_9)) {
+    U32 delta = (U32)(key - G_Key_0);
+    codepoint = '0' + delta;
+  }
+  else {
+    // @Note: Temporary
+    switch (key) {
+      case G_Key_E: {
+        codepoint = 'E';
+      }break;
+      case G_Key_R: {
+        codepoint = 'R';
+      }break;
+    }
+    
+  }
+  
+  return codepoint;
+}
 
 function void
 ed_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale, V4F32 color)
@@ -138,9 +186,6 @@ ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, E
     if (editor.hovered_tile_idx == token_idx) {
       col = v4f32(0.88f,0.88f,0.88f,1.f);
     }
-    if (editor.selected_tile_idx == token_idx) {
-      col = v4f32(1.f,2.f,1.f,1.f);
-    }
     ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, col);
   }
 }
@@ -166,8 +211,12 @@ ed_update(ED_Context *editor)
   }
   
   g_get_input(window, input, events);
+  F32 mx = input->mouse.x;
+  F32 my = input->mouse.y;
   
+  //
   // Map selection
+  //
   
   if (g_key_pressed(input, G_Key_Right)) {
     editor->current_map_idx += 1;
@@ -178,15 +227,17 @@ ed_update(ED_Context *editor)
     editor->current_map_idx = Max(editor->current_map_idx, 0);
   }
   
-  // Tile selection 
+  //
+  // Tile selection in map 
+  //
   
   G_TileMap *map = ed_map_get(&editor->maps, editor->current_map_idx);
   S32 tiles_count = map->width * map->height;
   
-  S32 hovered_tile_idx = -1;
+  editor->hovered_tile_idx = -1;
+  editor->selected_tile_idx = -1;
   
-  F32 mx = input->mouse.x;
-  F32 my = input->mouse.y;
+  S32 hovered_tile_idx = -1;
   
   for (S32 tile_idx = 0; tile_idx < tiles_count; tile_idx += 1) {
     F32 col = tile_idx % map->width;
@@ -210,6 +261,95 @@ ed_update(ED_Context *editor)
       editor->selected_tile_idx = hovered_tile_idx;
     }
   }
+  
+  //
+  // Tile choice menu interaction
+  //
+  
+  F32 scale = editor->view.scale;
+  
+  // @Todo: Put this in a ED_ChoiceContext struct.
+  F32 base_x = 948;
+  F32 base_y = 100;
+  F32 pad_x = 120;
+  F32 pad_y = 8;
+  S32 col_size = 6;
+  
+  S32 hovered_choice_idx = -1;
+  
+  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
+    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
+    
+    F32 choice_x_min = base_x + pad_x*(choice_idx / col_size);
+    F32 choice_y_min = base_y + (scale+pad_y)*(choice_idx % col_size);
+    F32 choice_x_max = choice_x_min + scale;
+    F32 choice_y_max = choice_y_min + scale;
+    
+    B32 mouse_in_choice = 
+    (mx >= choice_x_min) && (my >= choice_y_min) && (mx < choice_x_max) && (my < choice_y_max);
+    if (mouse_in_choice) {
+      hovered_choice_idx = choice_idx;
+    }
+  }
+  
+  if (hovered_choice_idx >= 0 && hovered_choice_idx < ED_CHOICES_COUNT) {
+    editor->hovered_choice_idx = hovered_choice_idx;
+    if (g_mouse_pressed(input, G_MouseButton_Left)) {
+      editor->selected_choice_idx = hovered_choice_idx;
+    }
+  }
+  
+  if (g_key_pressed(input, G_Key_1)) {
+    editor->selected_choice_idx = 0;
+  }
+  else if (g_key_pressed(input, G_Key_2)) {
+    editor->selected_choice_idx = 1;
+  }
+  else if (g_key_pressed(input, G_Key_3)) {
+    editor->selected_choice_idx = 2;
+  }
+  else if (g_key_pressed(input, G_Key_4)) {
+    editor->selected_choice_idx = 3;
+  }
+  else if (g_key_pressed(input, G_Key_5)) {
+    editor->selected_choice_idx = 4;
+  }
+  else if (g_key_pressed(input, G_Key_6)) {
+    editor->selected_choice_idx = 5;
+  }
+  else if (g_key_pressed(input, G_Key_7)) {
+    editor->selected_choice_idx = 6;
+  }
+  else if (g_key_pressed(input, G_Key_8)) {
+    editor->selected_choice_idx = 7;
+  }
+  else if (g_key_pressed(input, G_Key_9)) {
+    editor->selected_choice_idx = 8;
+  }
+  else if (g_key_pressed(input, G_Key_E)) {
+    editor->selected_choice_idx = 9;
+  }
+  else if (g_key_pressed(input, G_Key_R)) {
+    editor->selected_choice_idx = 10;
+  }
+  
+  //
+  // Update the map according to selected tile in map and choice
+  //
+  
+  // @Note: Temp check; need upper bound too.
+  {
+    S32 selected_tile_idx = editor->selected_tile_idx;
+    S32 selected_choice_idx = editor->selected_choice_idx;
+    
+    if ((selected_tile_idx >= 0) && (selected_choice_idx >= 0)) {
+      ED_ChoiceEntry *choice = &ed_choice_table[selected_choice_idx];
+      G_TileMap *map = ed_map_get(&editor->maps, editor->current_map_idx);
+      map->tokens[selected_tile_idx] = choice->token;
+      
+      editor->selected_tile_idx = -1;
+    }
+  }
 }
 
 function void
@@ -225,16 +365,57 @@ ed_render(ED_Context *editor)
   r_begin_frame(renderer); 
   
   TempArena tmp = arena_temp_begin(editor->arena);
-  {
-    V4F32 col = v4f32(0.4f,0.4f,0.4f,1.f);
-    r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), col, 0);
+  
+  G_TileMap *current_map = ed_map_get(&editor->maps, editor->current_map_idx);
+  ed_render_tilemap(renderer, assets, current_map, &editor->view);
+  
+  V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
+  F32 scale = editor->view.scale;
+  
+  //
+  // Draw the tile choice elements
+  //
+  
+  F32 base_x = 948;
+  F32 base_y = 100;
+  F32 pad_x = 120;
+  F32 pad_y = 8;
+  S32 col_size = 6;
+  
+  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
+    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
+    G_Sprite *sprite = g_assets_get_sprite(assets, choice->path);
     
-    String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", editor->current_map_idx);
-    r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(col,0.88f), 0);
+    F32 spr_y = base_y + (scale + pad_y)*(choice_idx % col_size);
+    F32 spr_x = base_x + pad_x*(choice_idx / col_size);
     
-    G_TileMap *current_map = ed_map_get(&editor->maps, editor->current_map_idx);
-    ed_render_tilemap(renderer, assets, current_map, &editor->view);
+    V4F32 sprite_color = v4f32(1,1,1,1);
+    if (editor->hovered_choice_idx == choice_idx) {
+      sprite_color = v4f32(0.88f,0.88f,0.88f,1.f);
+    }
+    if (editor->selected_choice_idx == choice_idx) {
+      sprite_color = v4f32(1.f,2.f,1.f,1.f);
+    }
+    
+    ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, sprite_color);
+    
+    U32 keybind_codepoint = ed_codepoint_from_key(choice->keybind);
+    String8 keybind_str = str8_pushf(tmp.arena, "%c", keybind_codepoint);
+    
+    V2F32 text_pos = v2f32(spr_x + scale*1.4f, spr_y + pad_y*2);
+    r_text(renderer, keybind_str, font, 32, text_pos, text_color, 0);
   }
+  
+  //
+  // Draw the current file and map's info
+  //
+  
+  {
+    r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
+    String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", editor->current_map_idx);
+    r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
+  }
+  
   arena_temp_end(tmp);
   
   r_flush(renderer);
