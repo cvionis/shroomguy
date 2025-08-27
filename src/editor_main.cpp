@@ -21,6 +21,21 @@ struct ED_View {
   F32 scale;
 };
 
+// @Note: Could just combine update() and render() and do a purely
+// immediate-mode style of updating and drawing menus so all the location, spacing,
+// sizing etc. information are local to the single place the menu is being both updated
+// and drawn.
+struct ED_ChoiceMenu {
+  F32 base_x;
+  F32 base_y;
+  F32 pad_x;
+  F32 pad_y;
+  S32 column_size;
+  
+  S32 hovered_choice_idx = -1;
+  S32 selected_choice_idx = -1;
+};
+
 struct ED_Context {
   B32 quit;
   
@@ -36,34 +51,12 @@ struct ED_Context {
   
   S32 hovered_tile_idx = -1;
   S32 selected_tile_idx = -1;
-  S32 hovered_choice_idx = -1;
-  S32 selected_choice_idx = -1;
   
+  ED_ChoiceMenu choice_menu;
   ED_View view;
 };
 
 global ED_Context editor;
-
-struct ED_ChoiceEntry {
-  String8 path;
-  G_TileToken token;
-  G_Key keybind;
-};
-
-#define ED_CHOICES_COUNT 11
-global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
-  { S8("sprites/empty.png"), G_TileToken_Empty, G_Key_1 },
-  { S8("sprites/dirt.png"), G_TileToken_Dirt, G_Key_2 },
-  { S8("sprites/stone_t1.png"), G_TileToken_StoneT1, G_Key_3 },
-  { S8("sprites/ore_t2.png"), G_TileToken_OreT2, G_Key_4 },
-  { S8("sprites/bedrock.png"), G_TileToken_Bedrock, G_Key_5 },
-  { S8("sprites/lava.png"), G_TileToken_Lava, G_Key_6 },
-  { S8("sprites/boulder_small.png"), G_TileToken_BoulderSmall, G_Key_7 },
-  { S8("sprites/boulder_large.png"), G_TileToken_BoulderLarge, G_Key_8 },
-  { S8("sprites/player.png"), G_TileToken_Player, G_Key_9 },
-  { S8("sprites/enemy_ground.png"), G_TileToken_EnemyGround, G_Key_E },
-  { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_R },
-};
 
 function U32
 ed_codepoint_from_key(G_Key key)
@@ -84,11 +77,30 @@ ed_codepoint_from_key(G_Key key)
         codepoint = 'R';
       }break;
     }
-    
   }
   
   return codepoint;
 }
+
+struct ED_ChoiceEntry {
+  String8 path;
+  G_TileToken token;
+  G_Key keybind;
+};
+#define ED_CHOICES_COUNT 11
+global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
+  { S8("sprites/empty.png"), G_TileToken_Empty, G_Key_1 },
+  { S8("sprites/dirt.png"), G_TileToken_Dirt, G_Key_2 },
+  { S8("sprites/stone_t1.png"), G_TileToken_StoneT1, G_Key_3 },
+  { S8("sprites/ore_t2.png"), G_TileToken_OreT2, G_Key_4 },
+  { S8("sprites/bedrock.png"), G_TileToken_Bedrock, G_Key_5 },
+  { S8("sprites/lava.png"), G_TileToken_Lava, G_Key_6 },
+  { S8("sprites/boulder_small.png"), G_TileToken_BoulderSmall, G_Key_7 },
+  { S8("sprites/boulder_large.png"), G_TileToken_BoulderLarge, G_Key_8 },
+  { S8("sprites/player.png"), G_TileToken_Player, G_Key_9 },
+  { S8("sprites/enemy_ground.png"), G_TileToken_EnemyGround, G_Key_E },
+  { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_R },
+};
 
 function void
 ed_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale, V4F32 color)
@@ -105,6 +117,117 @@ ed_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale,
     quad.colors[3] = color;
     
     r_quad(renderer, &quad, sprite->texture);
+  }
+}
+
+function void
+ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input, ED_View *view)
+{
+  F32 scale = view->scale;
+  
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
+  F32 pad_x = menu->pad_x;
+  F32 pad_y = menu->pad_y;
+  S32 column_size = menu->column_size;
+  
+  F32 mx = input->mouse.x;
+  F32 my = input->mouse.y;
+  
+  S32 hovered_choice_idx = -1;
+  
+  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
+    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
+    
+    F32 choice_x_min = base_x + pad_x*(choice_idx / column_size);
+    F32 choice_y_min = base_y + (scale+pad_y)*(choice_idx % column_size);
+    F32 choice_x_max = choice_x_min + scale;
+    F32 choice_y_max = choice_y_min + scale;
+    
+    B32 mouse_in_choice = 
+    (mx >= choice_x_min) && (my >= choice_y_min) && (mx < choice_x_max) && (my < choice_y_max);
+    if (mouse_in_choice) {
+      hovered_choice_idx = choice_idx;
+    }
+  }
+  
+  if (hovered_choice_idx >= 0 && hovered_choice_idx < ED_CHOICES_COUNT) {
+    menu->hovered_choice_idx = hovered_choice_idx;
+    if (g_mouse_pressed(input, G_MouseButton_Left)) {
+      menu->selected_choice_idx = hovered_choice_idx;
+    }
+  }
+  
+  if (g_key_pressed(input, G_Key_1)) {
+    menu->selected_choice_idx = 0;
+  }
+  else if (g_key_pressed(input, G_Key_2)) {
+    menu->selected_choice_idx = 1;
+  }
+  else if (g_key_pressed(input, G_Key_3)) {
+    menu->selected_choice_idx = 2;
+  }
+  else if (g_key_pressed(input, G_Key_4)) {
+    menu->selected_choice_idx = 3;
+  }
+  else if (g_key_pressed(input, G_Key_5)) {
+    menu->selected_choice_idx = 4;
+  }
+  else if (g_key_pressed(input, G_Key_6)) {
+    menu->selected_choice_idx = 5;
+  }
+  else if (g_key_pressed(input, G_Key_7)) {
+    menu->selected_choice_idx = 6;
+  }
+  else if (g_key_pressed(input, G_Key_8)) {
+    menu->selected_choice_idx = 7;
+  }
+  else if (g_key_pressed(input, G_Key_9)) {
+    menu->selected_choice_idx = 8;
+  }
+  else if (g_key_pressed(input, G_Key_E)) {
+    menu->selected_choice_idx = 9;
+  }
+  else if (g_key_pressed(input, G_Key_R)) {
+    menu->selected_choice_idx = 10;
+  }
+}
+
+function void
+ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetContext *assets, ED_ChoiceMenu *menu, ED_View *view)
+{
+  F32 scale = view->scale;
+  
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
+  F32 pad_x = menu->pad_x;
+  F32 pad_y = menu->pad_y;
+  S32 column_size = menu->column_size;
+  
+  V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
+  
+  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
+    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
+    G_Sprite *sprite = g_assets_get_sprite(assets, choice->path);
+    
+    F32 spr_y = base_y + (scale + pad_y)*(choice_idx % column_size);
+    F32 spr_x = base_x + pad_x*(choice_idx / column_size);
+    
+    V4F32 sprite_color = v4f32(1,1,1,1);
+    if (menu->hovered_choice_idx == choice_idx) {
+      sprite_color = v4f32(0.88f,0.88f,0.88f,1.f);
+    }
+    if (menu->selected_choice_idx == choice_idx) {
+      sprite_color = v4f32(1.f,2.f,1.f,1.f);
+    }
+    
+    ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, sprite_color);
+    
+    U32 keybind_codepoint = ed_codepoint_from_key(choice->keybind);
+    String8 keybind_str = str8_pushf(arena, "%c", keybind_codepoint);
+    
+    V2F32 text_pos = v2f32(spr_x + scale*1.4f, spr_y + pad_y*2);
+    r_text(renderer, keybind_str, font, 32, text_pos, text_color, 0);
   }
 }
 
@@ -446,72 +569,7 @@ ed_update(ED_Context *editor)
   // Tile choice menu interaction
   //
   
-  F32 scale = editor->view.scale;
-  
-  // @Todo: Put this in a ED_ChoiceContext struct.
-  F32 base_x = 948;
-  F32 base_y = 100;
-  F32 pad_x = 120;
-  F32 pad_y = 8;
-  S32 col_size = 6;
-  
-  S32 hovered_choice_idx = -1;
-  
-  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
-    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
-    
-    F32 choice_x_min = base_x + pad_x*(choice_idx / col_size);
-    F32 choice_y_min = base_y + (scale+pad_y)*(choice_idx % col_size);
-    F32 choice_x_max = choice_x_min + scale;
-    F32 choice_y_max = choice_y_min + scale;
-    
-    B32 mouse_in_choice = 
-    (mx >= choice_x_min) && (my >= choice_y_min) && (mx < choice_x_max) && (my < choice_y_max);
-    if (mouse_in_choice) {
-      hovered_choice_idx = choice_idx;
-    }
-  }
-  
-  if (hovered_choice_idx >= 0 && hovered_choice_idx < ED_CHOICES_COUNT) {
-    editor->hovered_choice_idx = hovered_choice_idx;
-    if (g_mouse_pressed(input, G_MouseButton_Left)) {
-      editor->selected_choice_idx = hovered_choice_idx;
-    }
-  }
-  
-  if (g_key_pressed(input, G_Key_1)) {
-    editor->selected_choice_idx = 0;
-  }
-  else if (g_key_pressed(input, G_Key_2)) {
-    editor->selected_choice_idx = 1;
-  }
-  else if (g_key_pressed(input, G_Key_3)) {
-    editor->selected_choice_idx = 2;
-  }
-  else if (g_key_pressed(input, G_Key_4)) {
-    editor->selected_choice_idx = 3;
-  }
-  else if (g_key_pressed(input, G_Key_5)) {
-    editor->selected_choice_idx = 4;
-  }
-  else if (g_key_pressed(input, G_Key_6)) {
-    editor->selected_choice_idx = 5;
-  }
-  else if (g_key_pressed(input, G_Key_7)) {
-    editor->selected_choice_idx = 6;
-  }
-  else if (g_key_pressed(input, G_Key_8)) {
-    editor->selected_choice_idx = 7;
-  }
-  else if (g_key_pressed(input, G_Key_9)) {
-    editor->selected_choice_idx = 8;
-  }
-  else if (g_key_pressed(input, G_Key_E)) {
-    editor->selected_choice_idx = 9;
-  }
-  else if (g_key_pressed(input, G_Key_R)) {
-    editor->selected_choice_idx = 10;
-  }
+  ed_choice_menu_update(&editor->choice_menu, input, &editor->view);
   
   //
   // Update the map according to selected tile in map and choice
@@ -520,7 +578,7 @@ ed_update(ED_Context *editor)
   // @Note: Temp check; need upper bound too.
   {
     S32 selected_tile_idx = editor->selected_tile_idx;
-    S32 selected_choice_idx = editor->selected_choice_idx;
+    S32 selected_choice_idx = editor->choice_menu.selected_choice_idx;
     
     if ((selected_tile_idx >= 0) && (selected_choice_idx >= 0)) {
       ED_ChoiceEntry *choice = &ed_choice_table[selected_choice_idx];
@@ -556,35 +614,8 @@ ed_render(ED_Context *editor)
   // Draw the tile choice elements
   //
   
-  F32 base_x = 948;
-  F32 base_y = 100;
-  F32 pad_x = 120;
-  F32 pad_y = 8;
-  S32 col_size = 6;
+  ed_choice_menu_render(tmp.arena, renderer, font, assets, &editor->choice_menu, &editor->view);
   
-  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
-    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
-    G_Sprite *sprite = g_assets_get_sprite(assets, choice->path);
-    
-    F32 spr_y = base_y + (scale + pad_y)*(choice_idx % col_size);
-    F32 spr_x = base_x + pad_x*(choice_idx / col_size);
-    
-    V4F32 sprite_color = v4f32(1,1,1,1);
-    if (editor->hovered_choice_idx == choice_idx) {
-      sprite_color = v4f32(0.88f,0.88f,0.88f,1.f);
-    }
-    if (editor->selected_choice_idx == choice_idx) {
-      sprite_color = v4f32(1.f,2.f,1.f,1.f);
-    }
-    
-    ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, sprite_color);
-    
-    U32 keybind_codepoint = ed_codepoint_from_key(choice->keybind);
-    String8 keybind_str = str8_pushf(tmp.arena, "%c", keybind_codepoint);
-    
-    V2F32 text_pos = v2f32(spr_x + scale*1.4f, spr_y + pad_y*2);
-    r_text(renderer, keybind_str, font, 32, text_pos, text_color, 0);
-  }
   
   //
   // Draw the current file and map's info
@@ -613,16 +644,30 @@ entry_point(void)
   editor.window = os_window_open(S8("Editor"), 1280, 720);
   
   r_equip_window(editor.window);
-  editor.renderer = r_context_alloc();
-  editor.font = r_font_ttf_parse_and_bake(editor.arena, S8("../data/fonts/Ithaca.ttf"));
-  editor.assets = g_assets_alloc(S8("../data"));
   
-  editor.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
-  //editor.maps.count = G_MAPS_MAX;
+  {
+    editor.renderer = r_context_alloc();
+    editor.font = r_font_ttf_parse_and_bake(editor.arena, S8("../data/fonts/Ithaca.ttf"));
+    editor.assets = g_assets_alloc(S8("../data"));
+  }
   
-  editor.current_map_idx = 0;
-  editor.view.map_offset = v2f32(400,120);
-  editor.view.scale = 60.f;
+  {
+    editor.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
+    editor.current_map_idx = 0;
+  }
+  
+  {
+    editor.view.map_offset = v2f32(400,120);
+    editor.view.scale = 60.f;
+  }
+  
+  {
+    editor.choice_menu.base_x = 948;
+    editor.choice_menu.base_y = 100;
+    editor.choice_menu.pad_x = 120;
+    editor.choice_menu.pad_y = 8;
+    editor.choice_menu.column_size = 6;
+  }
   
   while (!editor.quit) {
     ed_update(&editor);
