@@ -73,6 +73,9 @@ struct ED_MapMenu {
   F32 base_y;
   F32 scale; 
   
+  F32 prev_mouse_x;
+  F32 prev_mouse_y;
+  
   S32 current_map_idx;
   S32 hovered_tile_idx = -1;
   S32 selected_tile_idx = -1;
@@ -254,6 +257,37 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
   S32 column_size = menu->column_size;
   
   V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
+  V4F32 bg_color = v4f32(0.2f,0.2f,0.2f,1.f);
+  
+  R_Quad quad = {0};
+  quad.uv_rect = rect_f32(0,0,1,1);
+  
+  F32 bg_width = 600;
+  F32 bg_height = (pad_y + scale) * column_size;
+  F32 bg_pad = 10;
+  
+  {
+    quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
+    quad.corner_softness = 0.3f;
+    quad.radius = 10.2f;
+    quad.colors[0] = bg_color;
+    quad.colors[1] = bg_color;
+    quad.colors[2] = bg_color;
+    quad.colors[3] = bg_color;
+    r_quad(renderer, &quad, 0);
+  }
+  {
+    bg_color = v4f32(0.4f,0.4f,0.4f,1.f);
+    quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
+    quad.corner_softness = 0.3f;
+    quad.radius = 10.2f;
+    quad.colors[0] = bg_color;
+    quad.colors[1] = bg_color;
+    quad.colors[2] = bg_color;
+    quad.colors[3] = bg_color;
+    quad.border_thickness = 1.2f;
+    r_quad(renderer, &quad, 0);
+  }
   
   for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
     ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
@@ -382,6 +416,9 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
   F32 mx = input->mouse.x;
   F32 my = input->mouse.y;
   
+  F32 pmx = menu->prev_mouse_x;
+  F32 pmy = menu->prev_mouse_y;
+  
   F32 base_x = menu->base_x;
   F32 base_y = menu->base_y;
   F32 scale = menu->scale;
@@ -395,6 +432,16 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
   if (g_key_pressed(input, G_Key_Left)) {
     menu->current_map_idx -= 1;
     menu->current_map_idx = Max(menu->current_map_idx, 0);
+  }
+  
+  // Scale adjustment
+  
+  static F32 scale_granularity = 10;
+  if (g_key_pressed(input, G_Key_Up)) {
+    menu->scale += scale_granularity;
+  }
+  if (g_key_pressed(input, G_Key_Down)) {
+    menu->scale -= scale_granularity;
   }
   
   // Tile selection in map 
@@ -429,6 +476,16 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
       menu->selected_tile_idx = hovered_tile_idx;
     }
   }
+  
+  if (g_mouse_down(input, G_MouseButton_Right)) {
+    static F32 mouse_pan_speed = 4;
+    F32 dmx = mx - pmx;
+    F32 dmy = my - pmy;
+    menu->base_x += dmx * mouse_pan_speed;
+    menu->base_y += dmy * mouse_pan_speed;
+  }
+  menu->prev_mouse_x = mx;
+  menu->prev_mouse_y = my;
 }
 
 function void
@@ -575,8 +632,8 @@ ed_render(ED_Context *editor)
   // arena inside the function.
   TempArena tmp = arena_temp_begin(editor->arena);
   
-  ed_map_menu_render(renderer, assets, &editor->map_menu);
   ed_choice_menu_render(tmp.arena, renderer, font, assets, &editor->choice_menu);
+  ed_map_menu_render(renderer, assets, &editor->map_menu);
   ed_resize_menu_render(renderer, &editor->resize_menu);
   
   //
@@ -627,17 +684,17 @@ entry_point(void)
   
   {
     editor.choice_menu.scale = 60;
-    editor.choice_menu.base_x = 948;
-    editor.choice_menu.base_y = 100;
+    editor.choice_menu.base_x = 1000;
+    editor.choice_menu.base_y = 40;
     editor.choice_menu.pad_x = 120;
     editor.choice_menu.pad_y = 8;
     editor.choice_menu.column_size = 6;
   }
   
   {
-    editor.resize_menu.base_x = 120;
-    editor.resize_menu.base_y = 300;
-    editor.resize_menu.square_size = 64;
+    editor.resize_menu.base_x = 1060;
+    editor.resize_menu.base_y = 550;
+    editor.resize_menu.square_size = 50;
     editor.resize_menu.mode = ED_ResizeMode_Append;
     
     F32 base_x = editor.resize_menu.base_x;
