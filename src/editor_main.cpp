@@ -26,8 +26,10 @@ struct ED_View {
 // @Note: Could just combine update() and render() and do a purely
 // immediate-mode style of updating and drawing menus so all the location, spacing,
 // sizing etc. information are local to the single place the menu is being both updated
-// and drawn.
+// and drawn. However, I wanted to experiment with this approach as it seems cleaner
+// and easier to reason about.
 struct ED_ChoiceMenu {
+  F32 scale;
   F32 base_x;
   F32 base_y;
   F32 pad_x;
@@ -66,6 +68,16 @@ struct ED_ResizeMenu {
   ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
 };
 
+struct ED_MapMenu {
+  F32 base_x;
+  F32 base_y;
+  F32 scale; 
+  
+  S32 current_map_idx;
+  S32 hovered_tile_idx = -1;
+  S32 selected_tile_idx = -1;
+};
+
 struct ED_Context {
   B32 quit;
   
@@ -84,7 +96,8 @@ struct ED_Context {
   
   ED_ChoiceMenu choice_menu;
   ED_ResizeMenu resize_menu;
-  ED_View view;
+  ED_MapMenu map_menu;
+  ED_View view; // @Todo: Obsolete
 };
 
 global ED_Context editor;
@@ -158,10 +171,9 @@ ed_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale,
 }
 
 function void
-ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input, ED_View *view)
+ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input)
 {
-  F32 scale = view->scale;
-  
+  F32 scale = menu->scale;
   F32 base_x = menu->base_x;
   F32 base_y = menu->base_y;
   F32 pad_x = menu->pad_x;
@@ -231,9 +243,9 @@ ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input, ED_View *view)
 }
 
 function void
-ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetContext *assets, ED_ChoiceMenu *menu, ED_View *view)
+ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetContext *assets, ED_ChoiceMenu *menu)
 {
-  F32 scale = view->scale;
+  F32 scale = menu->scale;
   
   F32 base_x = menu->base_x;
   F32 base_y = menu->base_y;
@@ -365,15 +377,75 @@ ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu)
 }
 
 function void
-ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, ED_View *view)
+ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
 {
+  F32 mx = input->mouse.x;
+  F32 my = input->mouse.y;
+  
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
+  F32 scale = menu->scale;
+  
+  // Map selection
+  
+  if (g_key_pressed(input, G_Key_Right)) {
+    menu->current_map_idx += 1;
+    menu->current_map_idx = Min(menu->current_map_idx, G_MAPS_MAX-1);
+  }
+  if (g_key_pressed(input, G_Key_Left)) {
+    menu->current_map_idx -= 1;
+    menu->current_map_idx = Max(menu->current_map_idx, 0);
+  }
+  
+  // Tile selection in map 
+  
+  // @Todo: Pass map storage instead
+  G_TileMap *map = ed_map_get(&editor.maps, menu->current_map_idx);
+  S32 tiles_count = map->width * map->height;
+  
+  menu->hovered_tile_idx = -1;
+  menu->selected_tile_idx = -1;
+  
+  S32 hovered_tile_idx = -1;
+  for (S32 tile_idx = 0; tile_idx < tiles_count; tile_idx += 1) {
+    F32 col = tile_idx % map->width;
+    F32 row = tile_idx / map->width;
+    
+    F32 tile_x_min = scale * col + base_x;
+    F32 tile_y_min = scale * row + base_y;
+    F32 tile_x_max = tile_x_min + scale;
+    F32 tile_y_max = tile_y_min + scale;
+    
+    B32 mouse_in_tile = 
+    (mx >= tile_x_min) && (my >= tile_y_min) && (mx < tile_x_max) && (my < tile_y_max);
+    if (mouse_in_tile) {
+      hovered_tile_idx = tile_idx;
+    }
+  }
+  
+  if (hovered_tile_idx >= 0 && hovered_tile_idx < tiles_count) {
+    menu->hovered_tile_idx = hovered_tile_idx;
+    if (g_mouse_pressed(input, G_MouseButton_Left)) {
+      menu->selected_tile_idx = hovered_tile_idx;
+    }
+  }
+}
+
+function void
+ed_map_menu_render(R_Context *renderer, G_AssetContext *assets, ED_MapMenu *menu)
+{
+  
+  // @Todo: Pass map storage
+  G_TileMap *map = ed_map_get(&editor.maps, menu->current_map_idx);
+  
   S32 map_width = map->width;
   S32 map_height = map->height;
   G_TileToken *tokens = map->tokens;
   S32 token_count = map_width*map_height;
   
-  V2F32 pos = view->map_offset;
-  F32 scale = view->scale;
+  F32 scale = menu->scale;
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
   
   F32 spr_x;
   F32 spr_y;
@@ -381,8 +453,8 @@ ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, E
   
   // Background tiles
   for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
-    spr_x = pos.x + scale * (token_idx % map_width);
-    spr_y = pos.y + scale * (token_idx / map_width);
+    spr_x = base_x + scale * (token_idx % map_width);
+    spr_y = base_y + scale * (token_idx / map_width);
     
     g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
   }
@@ -391,8 +463,8 @@ ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, E
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
     
-    spr_x = pos.x + scale * (token_idx % map_width);
-    spr_y = pos.y + scale * (token_idx / map_width);
+    spr_x = base_x + scale * (token_idx % map_width);
+    spr_y = base_y + scale * (token_idx / map_width);
     
     G_TileToken token = tokens[token_idx];
     switch (token) {
@@ -439,7 +511,7 @@ ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, E
     
     // @Todo: Don't access editor via global here
     V4F32 col = v4f32(1,1,1,1);
-    if (editor.hovered_tile_idx == token_idx) {
+    if (menu->hovered_tile_idx == token_idx) {
       col = v4f32(0.88f,0.88f,0.88f,1.f);
     }
     ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, col);
@@ -451,7 +523,6 @@ ed_update(ED_Context *editor)
 {
   OS_Handle window = editor->window;
   G_Input *input = &editor->input;
-  ED_View *view = &editor->view;
   
   OS_EventList *events = os_get_events();
   for (OS_Event *e = events->first; e != 0; e = e->next) {
@@ -461,81 +532,26 @@ ed_update(ED_Context *editor)
   }
   
   g_get_input(window, input, events);
-  F32 mx = input->mouse.x;
-  F32 my = input->mouse.y;
   
-  //
-  // Map selection
-  //
-  
-  if (g_key_pressed(input, G_Key_Right)) {
-    editor->current_map_idx += 1;
-    editor->current_map_idx = Min(editor->current_map_idx, G_MAPS_MAX-1);
-  }
-  if (g_key_pressed(input, G_Key_Left)) {
-    editor->current_map_idx -= 1;
-    editor->current_map_idx = Max(editor->current_map_idx, 0);
-  }
-  
-  //
-  // Tile selection in map 
-  //
-  
-  G_TileMap *map = ed_map_get(&editor->maps, editor->current_map_idx);
-  S32 tiles_count = map->width * map->height;
-  
-  editor->hovered_tile_idx = -1;
-  editor->selected_tile_idx = -1;
-  
-  S32 hovered_tile_idx = -1;
-  
-  for (S32 tile_idx = 0; tile_idx < tiles_count; tile_idx += 1) {
-    F32 col = tile_idx % map->width;
-    F32 row = tile_idx / map->width;
-    
-    F32 tile_x_min = view->scale * col + view->map_offset.x;
-    F32 tile_y_min = view->scale * row + view->map_offset.y;
-    F32 tile_x_max = tile_x_min + view->scale;
-    F32 tile_y_max = tile_y_min + view->scale;
-    
-    B32 mouse_in_tile = 
-    (mx >= tile_x_min) && (my >= tile_y_min) && (mx < tile_x_max) && (my < tile_y_max);
-    if (mouse_in_tile) {
-      hovered_tile_idx = tile_idx;
-    }
-  }
-  
-  if (hovered_tile_idx >= 0 && hovered_tile_idx < tiles_count) {
-    editor->hovered_tile_idx = hovered_tile_idx;
-    if (g_mouse_pressed(input, G_MouseButton_Left)) {
-      editor->selected_tile_idx = hovered_tile_idx;
-    }
-  }
-  
-  //
-  // Tile choice menu interaction
-  //
-  
-  ed_choice_menu_update(&editor->choice_menu, input, &editor->view);
-  
-  //
-  // Tilemap resizing menu interaction
-  //
-  
+  ed_map_menu_update(&editor->map_menu, input);
+  ed_choice_menu_update(&editor->choice_menu, input);
   ed_resize_menu_update(&editor->resize_menu, input);
   
   //
   // Update the map according to selected tile in map and choice
   //
   
-  // @Note: Temp check; need upper bound too.
   {
-    S32 selected_tile_idx = editor->selected_tile_idx;
+    ED_MapMenu *map_menu = &editor->map_menu;
+    
+    S32 selected_tile_idx = map_menu->selected_tile_idx;
     S32 selected_choice_idx = editor->choice_menu.selected_choice_idx;
     
-    if ((selected_tile_idx >= 0) && (selected_choice_idx >= 0)) {
+    B32 indices_valid = (selected_tile_idx >= 0) && (selected_choice_idx >= 0);
+    if (indices_valid) {
       ED_ChoiceEntry *choice = &ed_choice_table[selected_choice_idx];
-      G_TileMap *map = ed_map_get(&editor->maps, editor->current_map_idx);
+      
+      G_TileMap *map = ed_map_get(&editor->maps, map_menu->current_map_idx);
       map->tokens[selected_tile_idx] = choice->token;
       
       editor->selected_tile_idx = -1;
@@ -555,24 +571,12 @@ ed_render(ED_Context *editor)
   r_set_viewport(os_window_client_rect(window));
   r_begin_frame(renderer); 
   
+  // @Todo: Why even pass an arena to choice_menu_render? Just use a scratch
+  // arena inside the function.
   TempArena tmp = arena_temp_begin(editor->arena);
   
-  G_TileMap *current_map = ed_map_get(&editor->maps, editor->current_map_idx);
-  ed_render_tilemap(renderer, assets, current_map, &editor->view);
-  
-  V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
-  F32 scale = editor->view.scale;
-  
-  //
-  // Draw the tile choice elements
-  //
-  
-  ed_choice_menu_render(tmp.arena, renderer, font, assets, &editor->choice_menu, &editor->view);
-  
-  //
-  // Draw the tilemap resizing menu
-  //
-  
+  ed_map_menu_render(renderer, assets, &editor->map_menu);
+  ed_choice_menu_render(tmp.arena, renderer, font, assets, &editor->choice_menu);
   ed_resize_menu_render(renderer, &editor->resize_menu);
   
   //
@@ -580,6 +584,7 @@ ed_render(ED_Context *editor)
   //
   
   {
+    V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
     r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
     String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", editor->current_map_idx);
     r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
@@ -615,11 +620,13 @@ entry_point(void)
   }
   
   {
-    editor.view.map_offset = v2f32(400,120);
-    editor.view.scale = 60.f;
+    editor.map_menu.base_x = 400;
+    editor.map_menu.base_y = 120;
+    editor.map_menu.scale = 60;
   }
   
   {
+    editor.choice_menu.scale = 60;
     editor.choice_menu.base_x = 948;
     editor.choice_menu.base_y = 100;
     editor.choice_menu.pad_x = 120;
