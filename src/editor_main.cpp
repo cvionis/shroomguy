@@ -5,6 +5,7 @@
 #include "sound/sound_inc.h"
 #include "async/async_inc.h"
 #include "game/game_inc.h"
+#include "editor/editor_inc.h"
 
 #include "base/base_inc.cpp"
 #include "os/os_inc.cpp"
@@ -13,6 +14,7 @@
 #include "sound/sound_inc.cpp"
 #include "async/async_inc.cpp"
 #include "game/game_inc.cpp"
+#include "editor/editor_inc.cpp"
 
 #define ED_DEFAULT_MAPS_PATH S8("../data/maps/default.maps")
 
@@ -50,8 +52,8 @@ struct ED_ResizeOption {
 };
 
 enum ED_ResizeMode {
-  ED_ResizeMode_Add,
-  ED_ResizeMode_Delete,
+  ED_ResizeMode_Append,
+  ED_ResizeMode_Remove,
 };
 
 struct ED_ResizeMenu {
@@ -61,7 +63,6 @@ struct ED_ResizeMenu {
   
   ED_ResizeMode mode;
   ED_ResizeOption options[ED_ResizeDirection_COUNT];
-  ED_ResizeDirection selected_direction = ED_ResizeDirection_None;
   ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
 };
 
@@ -87,6 +88,12 @@ struct ED_Context {
 };
 
 global ED_Context editor;
+
+function G_TileMap *
+ed_map_get(G_MapStorage *maps, S32 map_idx)
+{
+  return &maps->maps[map_idx];
+}
 
 function U32
 ed_codepoint_from_key(G_Key key)
@@ -278,9 +285,47 @@ ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
     }
   }
   
+  Arena *scratch = arena_get_scratch(0,0);
+  
   menu->hovered_direction = hovered_direction;
   if (g_mouse_pressed(input, G_MouseButton_Left)) {
-    menu->selected_direction = hovered_direction;
+    // @Todo: Don't reference global context directly.
+    G_TileMap *map = ed_map_get(&editor.maps, editor.current_map_idx);
+    switch (menu->mode) {
+      case ED_ResizeMode_Append: {
+        switch (hovered_direction) {
+          case ED_ResizeDirection_Left: {
+            ed_tilemap_column_append_left(scratch, map);
+          }break;
+          case ED_ResizeDirection_Right: {
+            ed_tilemap_column_append_right(scratch, map);
+          }break;
+          case ED_ResizeDirection_Top: {
+            ed_tilemap_row_append_top(scratch, map);
+          }break;
+          case ED_ResizeDirection_Bottom: {
+            ed_tilemap_row_append_bottom(scratch, map);
+          }break;
+        }
+      }break;
+      case ED_ResizeMode_Remove: {
+        switch (hovered_direction) {
+          case ED_ResizeDirection_Left: {
+            ed_tilemap_column_remove_left(scratch, map);
+          }break;
+          case ED_ResizeDirection_Right: {
+            ed_tilemap_column_remove_right(scratch, map);
+          }break;
+          case ED_ResizeDirection_Top: {
+            ed_tilemap_row_remove_top(scratch, map);
+          }break;
+          case ED_ResizeDirection_Bottom: {
+            ed_tilemap_row_remove_bottom(scratch, map);
+          }break;
+        }
+      }break;
+    }
+    // @Resume
   }
   
   if (g_key_pressed(input, G_Key_Space)) {
@@ -292,7 +337,7 @@ function void
 ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu)
 {
   V4F32 square_color = v4f32(0.5f,0.58f,0.5f,1.f);
-  if (menu->mode == ED_ResizeMode_Delete) {
+  if (menu->mode == ED_ResizeMode_Remove) {
     square_color = v4f32(0.58f,0.5f,0.5f,1.f);
   }
   
@@ -301,16 +346,11 @@ ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu)
   quad.corner_softness = 0.3f;
   quad.radius = 3.2f;
   
-  // @Todo: In update function, set selected_direction to ED_ResizeDirection_None.
-  
   for (S32 option_idx = 0; option_idx < ED_ResizeDirection_COUNT; option_idx += 1) {
     ED_ResizeOption *option = &menu->options[option_idx];
     
     V4F32 col = square_color;
     if (option_idx == menu->hovered_direction) {
-      col = v4f32_sub(col, v4f32(0.1f,0.1f,0.1f,0.f));
-    }
-    if (option_idx == menu->selected_direction) {
       col = v4f32_sub(col, v4f32(0.1f,0.1f,0.1f,0.f));
     }
     
@@ -403,192 +443,6 @@ ed_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, E
       col = v4f32(0.88f,0.88f,0.88f,1.f);
     }
     ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, col);
-  }
-}
-
-function G_TileMap *
-ed_map_get(G_MapStorage *maps, S32 map_idx)
-{
-  return &maps->maps[map_idx];
-}
-
-function void
-ed_tilemap_column_append_left(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 src_row_size = sizeof(G_TileToken)*width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->width += 1;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 dst_off = row*(width+1)+1;
-    S32 src_off = row*width;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, src_row_size); 
-  }
-}
-
-function void
-ed_tilemap_column_append_right(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 src_row_size = sizeof(G_TileToken)*width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  // TODO: Consider filling with floor tiles instead of blank tiles.
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->width += 1;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 dst_off = row*(width+1);
-    S32 src_off = row*width;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, src_row_size); 
-  }
-}
-
-function void
-ed_tilemap_column_remove_left(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  
-  S32 new_width = width - 1;
-  S32 row_size = sizeof(G_TileToken)*new_width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->width = new_width;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 dst_off = row*new_width;
-    S32 src_off = row*width+1;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, row_size); 
-  }
-}
-
-function void
-ed_tilemap_column_remove_right(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  
-  S32 new_width = width - 1;
-  S32 row_size = sizeof(G_TileToken)*new_width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->width = new_width;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 dst_off = row*new_width;
-    S32 src_off = row*width;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, row_size); 
-  }
-}
-
-function void
-ed_tilemap_row_append_top(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 src_row_size = sizeof(G_TileToken)*width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->height += 1;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 src_off = row*width;
-    S32 dst_off = (row+1)*width;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, src_row_size); 
-  }
-}
-
-function void
-ed_tilemap_row_append_bottom(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 src_row_size = sizeof(G_TileToken)*width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->height += 1;
-  
-  for (S32 row = 0; row < height; row += 1) {
-    S32 off = row*width;
-    MemoryCopy(map->tokens+off, tmp->tokens+off, src_row_size); 
-  }
-}
-
-function void
-ed_tilemap_row_remove_top(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 row_size = sizeof(G_TileToken)*width;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->height -= 1;
-  
-  for (S32 row = 1; row < height; row += 1) {
-    S32 src_off = row*width;
-    S32 dst_off = (row-1)*width;
-    
-    MemoryCopy(map->tokens+dst_off, tmp->tokens+src_off, row_size); 
-  }
-}
-
-function void
-ed_tilemap_row_remove_bottom(Arena *arena, G_TileMap *map)
-{
-  S32 width = map->width;
-  S32 height = map->height;
-  S32 tiles_count = width*height;
-  S32 row_size = sizeof(G_TileToken)*width;
-  S32 new_height = height - 1;
-  
-  G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
-  MemoryCopyStruct(tmp, map);
-  
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
-  map->height = new_height;
-  
-  for (S32 row = 0; row < new_height; row += 1) {
-    S32 off = row*width;
-    
-    MemoryCopy(map->tokens+off, tmp->tokens+off, row_size); 
   }
 }
 
@@ -775,9 +629,9 @@ entry_point(void)
   
   {
     editor.resize_menu.base_x = 120;
-    editor.resize_menu.base_y = 100;
+    editor.resize_menu.base_y = 300;
     editor.resize_menu.square_size = 64;
-    editor.resize_menu.mode = ED_ResizeMode_Add;
+    editor.resize_menu.mode = ED_ResizeMode_Append;
     
     F32 base_x = editor.resize_menu.base_x;
     F32 base_y = editor.resize_menu.base_y;

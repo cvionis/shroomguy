@@ -4,7 +4,7 @@
 // Constants 
 //
 
-#define G_TILEMAP_TOKENS_MAX 256
+#define G_TILEMAP_TOKENS_MAX 512
 #define G_LEVEL_ENEMIES_MAX 32
 #define G_LEVEL_BOULDERS_MAX 16
 #define G_AIR_ENEMY_HEALTH_MAX 1
