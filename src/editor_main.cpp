@@ -18,16 +18,101 @@
 
 #define ED_DEFAULT_MAPS_PATH S8("../data/maps/default.maps")
 
-struct ED_View {
-  V2F32 map_offset;
-  F32 scale;
+struct ED_UndoNode {
+  ED_UndoNode *stack_next;
+  ED_UndoNode *free_next;
+  
+  G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
+  S32 width;
+  S32 height;
 };
 
-// @Note: Could just combine update() and render() and do a purely
-// immediate-mode style of updating and drawing menus so all the location, spacing,
-// sizing etc. information are local to the single place the menu is being both updated
-// and drawn. However, I wanted to experiment with this approach as it seems cleaner
-// and easier to reason about.
+struct ED_UndoContext {
+  Arena *arena;
+  
+  ED_UndoNode *first; // Most recent undo state
+  ED_UndoNode *last;  // Least recent undo state
+  S32 count;
+  
+  ED_UndoNode *free;
+};
+
+function ED_UndoContext 
+ed_undo_make(void)
+{
+  ED_UndoContext undo = {0};
+  
+  Arena *arena = arena_alloc_default();
+  undo.arena = arena;
+  
+  return undo;
+}
+
+function void
+ed_undo_release(ED_UndoContext *undo)
+{
+  arena_release(undo->arena);
+}
+
+function void 
+ed_undo_clear(ED_UndoContext *undo)
+{
+  arena_clear(undo->arena);
+  undo->count = 0;
+}
+
+function void 
+ed_undo_push(ED_UndoContext *undo, G_TileMap *map)
+{
+  ED_UndoNode *n = undo->free;
+  SLLStackPopN(undo->free, free_next);
+  if (!n) {
+    n = ArenaPushStruct(undo->arena, ED_UndoNode);
+  }
+  
+  U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+  MemoryCopy(n->tokens, map->tokens, tiles_size);
+  n->width = map->width;
+  n->height = map->height;
+  
+  SLLQueuePushFrontN(undo->first, undo->last, n, stack_next);
+  undo->count += 1;
+}
+
+function void
+ed_undo_pop(ED_UndoContext *undo, G_TileMap *map)
+{
+  ED_UndoNode *n = undo->first;
+  if (n) {
+    if (map) {
+      U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+      MemoryCopy(map->tokens, n->tokens, tiles_size);
+      map->width = n->width;
+      map->height = n->height;
+      
+      SLLQueuePopN(undo->first, undo->last, stack_next);
+      SLLStackPushN(undo->free, n, free_next);
+      undo->count -= 1;
+    }
+  }
+}
+
+function void
+ed_undo_restart(ED_UndoContext *undo, G_TileMap *map)
+{
+  ED_UndoNode *n = undo->last;
+  if (n) {
+    if (map) {
+      U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
+      MemoryCopy(map->tokens, n->tokens, tiles_size);
+      map->width = n->width;
+      map->height = n->height;
+      
+      undo->count = 0;
+    }
+  }
+}
+
 struct ED_ChoiceMenu {
   F32 scale;
   F32 base_x;
@@ -85,6 +170,7 @@ struct ED_MapMenu {
   S32 selected_tile_idx = -1;
 };
 
+// @Todo: Change from ED_Context to AppState
 struct ED_Context {
   B32 quit;
   
@@ -104,7 +190,8 @@ struct ED_Context {
   ED_ChoiceMenu choice_menu;
   ED_ResizeMenu resize_menu;
   ED_MapMenu map_menu;
-  ED_View view; // @Todo: Obsolete
+  
+  ED_UndoContext undo;
   
   B32 menu_toggle = 1;
 };
@@ -370,8 +457,10 @@ ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
   
   menu->hovered_direction = hovered_direction;
   if (g_mouse_pressed(input, G_MouseButton_Left)) {
-    // @Todo: Don't reference global context directly.
+    // @Todo: Pass map storage and undo
     G_TileMap *map = ed_map_get(&editor.maps, editor.current_map_idx);
+    ed_undo_push(&editor.undo, map);
+    
     switch (menu->mode) {
       case ED_ResizeMode_Append: {
         switch (hovered_direction) {
@@ -550,6 +639,17 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
     }
   }
   
+  // @Todo: Just pass choice controls and undo
+  B32 indices_valid = (menu->selected_tile_idx >= 0 && editor.choice_menu.selected_choice_idx >= 0);
+  if (indices_valid) {
+    ed_undo_push(&editor.undo, map);
+    
+    ED_ChoiceEntry *choice = &ed_choice_table[editor.choice_menu.selected_choice_idx];
+    map->tokens[menu->selected_tile_idx] = choice->token;
+    
+    menu->selected_tile_idx = -1;
+  }
+  
   if (g_mouse_down(input, G_MouseButton_Right)) {
     static F32 mouse_pan_speed = 4;
     F32 dmx = mx - pmx;
@@ -704,28 +804,16 @@ ed_update(ED_Context *editor)
   
   g_transition_f32_update(&choice_menu->base_x_transition, &choice_menu->base_x, delta_time);
   g_transition_f32_update(&resize_menu->base_x_transition, &resize_menu->base_x, delta_time);
-  
   //
-  // Update the map according to selected tile in map and choice
+  // Undo
   //
   
-  {
-    ED_MapMenu *map_menu = &editor->map_menu;
-    
-    S32 selected_tile_idx = map_menu->selected_tile_idx;
-    S32 selected_choice_idx = editor->choice_menu.selected_choice_idx;
-    
-    B32 indices_valid = (selected_tile_idx >= 0) && (selected_choice_idx >= 0);
-    if (indices_valid) {
-      ED_ChoiceEntry *choice = &ed_choice_table[selected_choice_idx];
-      
-      G_TileMap *map = ed_map_get(&editor->maps, map_menu->current_map_idx);
-      map->tokens[selected_tile_idx] = choice->token;
-      
-      editor->selected_tile_idx = -1;
-    }
+  ED_MapMenu *map_menu = &editor->map_menu;
+  G_TileMap *map = ed_map_get(&editor->maps, map_menu->current_map_idx);
+  
+  if (g_key_pressed(input, G_Key_Z)) {
+    ed_undo_pop(&editor->undo, map);
   }
-  
 }
 
 function void
@@ -772,20 +860,21 @@ entry_point(void)
   os_gfx_init();
   r_init(); 
   
-  editor.arena = arena_alloc_default();
   editor.window = os_window_open(S8("Editor"), 1280, 720);
-  
   r_equip_window(editor.window);
-  
-  {
-    editor.renderer = r_context_alloc();
-    editor.font = r_font_ttf_parse_and_bake(editor.arena, S8("../data/fonts/Ithaca.ttf"));
-    editor.assets = g_assets_alloc(S8("../data"));
-  }
+  editor.arena = arena_alloc_default();
+  editor.renderer = r_context_alloc();
+  editor.font = r_font_ttf_parse_and_bake(editor.arena, S8("../data/fonts/Ithaca.ttf"));
+  editor.assets = g_assets_alloc(S8("../data"));
   
   {
     editor.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
     editor.current_map_idx = 0;
+  }
+  
+  {
+    editor.undo = ed_undo_make();
+    G_TileMap *map = ed_map_get(&editor.maps, editor.current_map_idx);
   }
   
   {
@@ -815,8 +904,9 @@ entry_point(void)
     ed_render(&editor);
   }
   
+  ed_undo_release(&editor.undo);
   g_assets_release(editor.assets);
   r_context_release(editor.renderer);
-  os_window_close(editor.window);
   arena_release(editor.arena);
+  os_window_close(editor.window);
 }

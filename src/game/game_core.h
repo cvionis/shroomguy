@@ -289,6 +289,9 @@ function B32 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 de
 function G_UndoContext g_undo_make(void);
 function void g_undo_release(G_UndoContext *undo);
 function void g_undo_clear(G_UndoContext *undo);
+function void g_undo_push(G_UndoContext *undo, G_TileMap *map);
+function void g_undo_pop(G_UndoContext *undo, G_TileMap *map);
+function void g_undo_restart(G_UndoContext *undo, G_TileMap *map);
 
 // Tilemaps
 function G_Entity g_player_from_tilemap(G_TileMap *map);
