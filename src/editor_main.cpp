@@ -38,6 +38,8 @@ struct ED_ChoiceMenu {
   
   S32 hovered_choice_idx = -1;
   S32 selected_choice_idx = -1;
+  
+  G_TransitionF32 base_x_transition;
 };
 
 enum ED_ResizeDirection {
@@ -66,6 +68,8 @@ struct ED_ResizeMenu {
   ED_ResizeMode mode;
   ED_ResizeOption options[ED_ResizeDirection_COUNT];
   ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
+  
+  G_TransitionF32 base_x_transition;
 };
 
 struct ED_MapMenu {
@@ -101,6 +105,8 @@ struct ED_Context {
   ED_ResizeMenu resize_menu;
   ED_MapMenu map_menu;
   ED_View view; // @Todo: Obsolete
+  
+  B32 menu_toggle = 1;
 };
 
 global ED_Context editor;
@@ -257,19 +263,20 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
   S32 column_size = menu->column_size;
   
   V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
-  V4F32 bg_color = v4f32(0.2f,0.2f,0.2f,1.f);
-  
-  R_Quad quad = {0};
-  quad.uv_rect = rect_f32(0,0,1,1);
   
   F32 bg_width = 600;
   F32 bg_height = (pad_y + scale) * column_size;
   F32 bg_pad = 10;
   
+  R_Quad quad = {0};
+  quad.uv_rect = rect_f32(0,0,1,1);
+  quad.corner_softness = 0.3f;
+  quad.radius = 10.2f;
+  
   {
+    V4F32 bg_color = v4f32(0.2f,0.2f,0.2f,1.f);
+    
     quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
-    quad.corner_softness = 0.3f;
-    quad.radius = 10.2f;
     quad.colors[0] = bg_color;
     quad.colors[1] = bg_color;
     quad.colors[2] = bg_color;
@@ -277,10 +284,9 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
     r_quad(renderer, &quad, 0);
   }
   {
-    bg_color = v4f32(0.4f,0.4f,0.4f,1.f);
+    V4F32 bg_color = v4f32(0.4f,0.4f,0.4f,1.f);
+    
     quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
-    quad.corner_softness = 0.3f;
-    quad.radius = 10.2f;
     quad.colors[0] = bg_color;
     quad.colors[1] = bg_color;
     quad.colors[2] = bg_color;
@@ -317,6 +323,35 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
 function void
 ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
 {
+  //
+  // Compute square controls' positions
+  //
+  
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
+  
+  F32 square_x = base_x;
+  F32 square_y = base_y;
+  F32 square_size = menu->square_size;
+  
+  ED_ResizeOption *options = menu->options;
+  
+  options[ED_ResizeDirection_Left].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
+  
+  square_x = base_x + 2*square_size;
+  options[ED_ResizeDirection_Right].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
+  
+  square_x = base_x + square_size;
+  square_y = base_y - square_size;
+  options[ED_ResizeDirection_Top].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
+  
+  square_y = base_y + square_size;
+  options[ED_ResizeDirection_Bottom].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
+  
+  //
+  // Interaction with square controls
+  //
+  
   F32 mx = input->mouse.x;
   F32 my = input->mouse.y;
   
@@ -371,8 +406,11 @@ ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
         }
       }break;
     }
-    // @Resume
   }
+  
+  //
+  // Resize mode selection
+  //
   
   if (g_key_pressed(input, G_Key_Space)) {
     menu->mode = (ED_ResizeMode)!(U32)menu->mode;
@@ -387,10 +425,45 @@ ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu)
     square_color = v4f32(0.58f,0.5f,0.5f,1.f);
   }
   
+  F32 base_x = menu->base_x;
+  F32 base_y = menu->base_y;
+  F32 bg_pad = 64;
+  F32 bg_width = 600;
+  F32 bg_height = menu->square_size;
+  
   R_Quad quad = {0};
   quad.uv_rect = rect_f32(0,0,1,1);
   quad.corner_softness = 0.3f;
+  quad.radius = 10.2f;
+  
+  {
+    V4F32 bg_color = v4f32(0.2f,0.2f,0.2f,1.f);
+    
+    quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
+    quad.corner_softness = 0.3f;
+    quad.radius = 10.2f;
+    quad.colors[0] = bg_color;
+    quad.colors[1] = bg_color;
+    quad.colors[2] = bg_color;
+    quad.colors[3] = bg_color;
+    r_quad(renderer, &quad, 0);
+  }
+  {
+    V4F32 bg_color = v4f32(0.4f,0.4f,0.4f,1.f);
+    quad.rect = rect_f32(base_x-bg_pad,base_y-bg_pad,base_x+bg_width+bg_pad,base_y+bg_height+bg_pad);
+    quad.corner_softness = 0.3f;
+    quad.radius = 10.2f;
+    quad.colors[0] = bg_color;
+    quad.colors[1] = bg_color;
+    quad.colors[2] = bg_color;
+    quad.colors[3] = bg_color;
+    quad.border_thickness = 1.2f;
+    r_quad(renderer, &quad, 0);
+  }
+  
+  quad.corner_softness = 0.3f;
   quad.radius = 3.2f;
+  quad.border_thickness = 0;
   
   for (S32 option_idx = 0; option_idx < ED_ResizeDirection_COUNT; option_idx += 1) {
     ED_ResizeOption *option = &menu->options[option_idx];
@@ -491,7 +564,6 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
 function void
 ed_map_menu_render(R_Context *renderer, G_AssetContext *assets, ED_MapMenu *menu)
 {
-  
   // @Todo: Pass map storage
   G_TileMap *map = ed_map_get(&editor.maps, menu->current_map_idx);
   
@@ -581,6 +653,9 @@ ed_update(ED_Context *editor)
   OS_Handle window = editor->window;
   G_Input *input = &editor->input;
   
+  
+  static F32 delta_time = 0.0167f; // @Note: Temporary.
+  
   OS_EventList *events = os_get_events();
   for (OS_Event *e = events->first; e != 0; e = e->next) {
     if (e->kind == OS_EventKind_WindowClose) {
@@ -593,6 +668,42 @@ ed_update(ED_Context *editor)
   ed_map_menu_update(&editor->map_menu, input);
   ed_choice_menu_update(&editor->choice_menu, input);
   ed_resize_menu_update(&editor->resize_menu, input);
+  
+  //
+  // Show/hide menus
+  //
+  
+  B32 do_menu_transition = 0;
+  if (g_key_pressed(input, G_Key_F1)) {
+    do_menu_transition = 1;
+  }
+  
+  ED_ChoiceMenu *choice_menu = &editor->choice_menu;
+  ED_ResizeMenu *resize_menu = &editor->resize_menu;
+  
+  if (do_menu_transition) {
+    static F32 base_x_offset = 400;
+    
+    switch (editor->menu_toggle) {
+      case 0: {
+        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x - base_x_offset, 0.23f, G_TransitionCurve_QuinticEaseInOut);
+        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x - base_x_offset, 0.23f, G_TransitionCurve_QuinticEaseInOut);
+        editor->menu_toggle = 1;
+      }break;
+      case 1: {
+        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
+        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
+        editor->menu_toggle = 0;
+      }break;
+    }
+  }
+  
+  //
+  // Update menu show/hide transitions
+  //
+  
+  g_transition_f32_update(&choice_menu->base_x_transition, &choice_menu->base_x, delta_time);
+  g_transition_f32_update(&resize_menu->base_x_transition, &resize_menu->base_x, delta_time);
   
   //
   // Update the map according to selected tile in map and choice
@@ -614,6 +725,7 @@ ed_update(ED_Context *editor)
       editor->selected_tile_idx = -1;
     }
   }
+  
 }
 
 function void
@@ -693,30 +805,9 @@ entry_point(void)
   
   {
     editor.resize_menu.base_x = 1060;
-    editor.resize_menu.base_y = 550;
+    editor.resize_menu.base_y = 540;
     editor.resize_menu.square_size = 50;
     editor.resize_menu.mode = ED_ResizeMode_Append;
-    
-    F32 base_x = editor.resize_menu.base_x;
-    F32 base_y = editor.resize_menu.base_y;
-    
-    F32 square_x = base_x;
-    F32 square_y = base_y;
-    F32 square_size = editor.resize_menu.square_size;
-    
-    ED_ResizeOption *options = editor.resize_menu.options;
-    
-    options[ED_ResizeDirection_Left].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
-    
-    square_x = base_x + 2*square_size;
-    options[ED_ResizeDirection_Right].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
-    
-    square_x = base_x + square_size;
-    square_y = base_y - square_size;
-    options[ED_ResizeDirection_Top].rect = rect_f32(square_x, square_y, square_x+square_size, square_y+square_size);
-    
-    square_y = base_y + square_size;
-    options[ED_ResizeDirection_Bottom].rect = rect_f32(square_x, square_y, square_x+square_size,  square_y+square_size);
   }
   
   while (!editor.quit) {
