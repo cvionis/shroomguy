@@ -182,16 +182,15 @@ struct ED_Context {
   G_Input input;
   G_AssetContext *assets;
   G_MapStorage maps;
-  S32 current_map_idx;
-  
-  S32 hovered_tile_idx = -1;
-  S32 selected_tile_idx = -1;
   
   ED_ChoiceMenu choice_menu;
   ED_ResizeMenu resize_menu;
   ED_MapMenu map_menu;
   
   ED_UndoContext undo;
+  
+  F32 save_text_a;
+  G_TransitionF32 save_text_tr;
   
   B32 menu_toggle = 1;
 };
@@ -408,7 +407,7 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
 }
 
 function void
-ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
+ed_resize_menu_update(ED_ResizeMenu *menu, ED_MapMenu *map_menu, G_MapStorage *maps, ED_UndoContext *undo, G_Input *input)
 {
   //
   // Compute square controls' positions
@@ -457,9 +456,8 @@ ed_resize_menu_update(ED_ResizeMenu *menu, G_Input *input)
   
   menu->hovered_direction = hovered_direction;
   if (g_mouse_pressed(input, G_MouseButton_Left)) {
-    // @Todo: Pass map storage and undo
-    G_TileMap *map = ed_map_get(&editor.maps, editor.current_map_idx);
-    ed_undo_push(&editor.undo, map);
+    G_TileMap *map = ed_map_get(maps, map_menu->current_map_idx);
+    ed_undo_push(undo, map);
     
     switch (menu->mode) {
       case ED_ResizeMode_Append: {
@@ -753,7 +751,6 @@ ed_update(ED_Context *editor)
   OS_Handle window = editor->window;
   G_Input *input = &editor->input;
   
-  
   static F32 delta_time = 0.0167f; // @Note: Temporary.
   
   OS_EventList *events = os_get_events();
@@ -767,7 +764,7 @@ ed_update(ED_Context *editor)
   
   ed_map_menu_update(&editor->map_menu, input);
   ed_choice_menu_update(&editor->choice_menu, input);
-  ed_resize_menu_update(&editor->resize_menu, input);
+  ed_resize_menu_update(&editor->resize_menu, &editor->map_menu, &editor->maps, &editor->undo, input);
   
   //
   // Show/hide menus
@@ -814,6 +811,18 @@ ed_update(ED_Context *editor)
   if (g_key_pressed(input, G_Key_Z)) {
     ed_undo_pop(&editor->undo, map);
   }
+  
+  //
+  // Save changes
+  //
+  
+  if (g_key_pressed(input, G_Key_F12)) {
+    g_maps_write(&editor->maps, ED_DEFAULT_MAPS_PATH);
+    editor->save_text_a = 1;
+    g_transition_f32_start(&editor->save_text_tr, 1, 0, 0.05f, G_TransitionCurve_QuinticEaseInOut);
+  }
+  
+  g_transition_f32_update(&editor->save_text_tr, &editor->save_text_a, delta_time);
 }
 
 function void
@@ -837,15 +846,17 @@ ed_render(ED_Context *editor)
   ed_resize_menu_render(renderer, &editor->resize_menu);
   
   //
-  // Draw the current file and map's info
+  // Text and labels
   //
   
-  {
-    V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
-    r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
-    String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", editor->current_map_idx);
-    r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
-  }
+  V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
+  
+  r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
+  
+  String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", editor->map_menu.current_map_idx);
+  r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
+  
+  r_text(renderer, S8("SAVED"), font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,editor->save_text_a), 0);
   
   arena_temp_end(tmp);
   
@@ -869,12 +880,11 @@ entry_point(void)
   
   {
     editor.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
-    editor.current_map_idx = 0;
   }
   
   {
     editor.undo = ed_undo_make();
-    G_TileMap *map = ed_map_get(&editor.maps, editor.current_map_idx);
+    G_TileMap *map = ed_map_get(&editor.maps, editor.map_menu.current_map_idx);
   }
   
   {

@@ -1,6 +1,13 @@
 // TODO
 
+- Rename "Menu" -> "Control"
+- Save/Write button with editable output path
+- Better selection indicator (no more ugly green tinting)
+
+- Create a map expansion/deletion widget.
 - Fix input (click) delay when editing the same tile twice in a row
+
+- Later: Fix draw order.
 
 ---
 STRETCH: FINISH BY END OF WEEKEND
