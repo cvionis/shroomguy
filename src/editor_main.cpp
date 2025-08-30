@@ -392,11 +392,24 @@ ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetCo
     if (menu->hovered_choice_idx == choice_idx) {
       sprite_color = v4f32(0.88f,0.88f,0.88f,1.f);
     }
-    if (menu->selected_choice_idx == choice_idx) {
-      sprite_color = v4f32(1.f,2.f,1.f,1.f);
-    }
     
     ed_render_sprite(renderer, sprite, spr_x, spr_y, scale, sprite_color);
+    
+    if (menu->selected_choice_idx == choice_idx) {
+      V4F32 outline_color = v4f32(0.9f,0.9f,0.9f,1.f);
+      F32 pad = 4;
+      R_Quad quad = {0};
+      quad.rect = rect_f32(spr_x-pad, spr_y-pad, spr_x+scale+pad, spr_y+scale+pad);
+      quad.uv_rect = rect_f32(0,0,1,1);
+      quad.colors[0] = outline_color;
+      quad.colors[1] = outline_color;
+      quad.colors[2] = outline_color;
+      quad.colors[3] = outline_color;
+      quad.corner_softness = 0.3f;
+      quad.radius = 6.f;
+      quad.border_thickness = 1.6f;
+      r_quad(renderer, &quad, 0);
+    }
     
     U32 keybind_codepoint = ed_codepoint_from_key(choice->keybind);
     String8 keybind_str = str8_pushf(arena, "%c", keybind_codepoint);
