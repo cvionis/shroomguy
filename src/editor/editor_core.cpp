@@ -9,7 +9,7 @@ ed_tilemap_column_append_left(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  MemorySet(map->tokens, G_TileToken_Empty, sizeof(G_TileToken)*tiles_count);
   map->width += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -32,7 +32,7 @@ ed_tilemap_column_append_right(Arena *arena, G_TileMap *map)
   MemoryCopyStruct(tmp, map);
   
   // TODO: Consider filling with floor tiles instead of blank tiles.
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  MemorySet(map->tokens, G_TileToken_Empty, sizeof(G_TileToken)*tiles_count);
   map->width += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -103,7 +103,7 @@ ed_tilemap_row_append_top(Arena *arena, G_TileMap *map)
   
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  MemorySet(map->tokens, G_TileToken_Empty, sizeof(G_TileToken)*tiles_count);
   map->height += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -125,7 +125,7 @@ ed_tilemap_row_append_bottom(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  MemorySet(map->tokens, G_TileToken_Empty, sizeof(G_TileToken)*tiles_count);
   map->height += 1;
   
   for (S32 row = 0; row < height; row += 1) {

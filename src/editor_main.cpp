@@ -662,7 +662,7 @@ ed_map_menu_update(ED_MapMenu *menu, G_Input *input)
   }
   
   if (g_mouse_down(input, G_MouseButton_Right)) {
-    static F32 mouse_pan_speed = 4;
+    static F32 mouse_pan_speed = 2;
     F32 dmx = mx - pmx;
     F32 dmy = my - pmy;
     menu->base_x += dmx * mouse_pan_speed;
@@ -796,8 +796,8 @@ ed_update(ED_Context *editor)
     
     switch (editor->menu_toggle) {
       case 0: {
-        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x - base_x_offset, 0.23f, G_TransitionCurve_QuinticEaseInOut);
-        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x - base_x_offset, 0.23f, G_TransitionCurve_QuinticEaseInOut);
+        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
+        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
         editor->menu_toggle = 1;
       }break;
       case 1: {
@@ -814,15 +814,26 @@ ed_update(ED_Context *editor)
   
   g_transition_f32_update(&choice_menu->base_x_transition, &choice_menu->base_x, delta_time);
   g_transition_f32_update(&resize_menu->base_x_transition, &resize_menu->base_x, delta_time);
-  //
-  // Undo
-  //
   
   ED_MapMenu *map_menu = &editor->map_menu;
   G_TileMap *map = ed_map_get(&editor->maps, map_menu->current_map_idx);
   
+  //
+  // Undo
+  //
+  
+  
   if (g_key_pressed(input, G_Key_Z)) {
     ed_undo_pop(&editor->undo, map);
+  }
+  
+  //
+  // Clear map tiles
+  //
+  
+  if (g_key_pressed(input, G_Key_F8)) {
+    ed_undo_push(&editor->undo, map);
+    MemorySet(map->tokens, G_TileToken_Empty, map->width*map->height*sizeof(G_TileToken));
   }
   
   //
