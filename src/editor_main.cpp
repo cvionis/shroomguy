@@ -831,6 +831,7 @@ ed_update(ED_Context *editor)
   
   if (g_key_pressed(input, G_Key_F12)) {
     g_maps_write(&editor->maps, ED_DEFAULT_MAPS_PATH);
+    
     editor->save_text_a = 1;
     g_transition_f32_start(&editor->save_text_tr, 1, 0, 0.05f, G_TransitionCurve_QuinticEaseInOut);
   }
@@ -893,6 +894,7 @@ entry_point(void)
   
   {
     editor.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
+    editor.maps.count = G_MAPS_MAX;
   }
   
   {

@@ -1337,9 +1337,9 @@ g_maps_write(G_MapStorage *maps, String8 path)
       
       U32 tokens_size = width*height*sizeof(G_TileToken);
       fwrite(map->tokens, tokens_size, 1, f);
-      
-      fclose(f);
     }
+    
+    fclose(f);
   }
 }
 
