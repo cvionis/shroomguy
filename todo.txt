@@ -1,13 +1,30 @@
 // TODO
 
+Cleanup:
+- Organize editor code into its own file
 - Rename "Menu" -> "Control"
-- Save/Write button with editable output path
-- Better selection indicator (no more ugly green tinting)
 
-- Create a map expansion/deletion widget.
-- Fix input (click) delay when editing the same tile twice in a row
+Bug fixes:
+- Crashes when shrinking map with width or height of 0
+- Editor menu UI base_x bug when show/hide is spammed
+
+Sound:
+- Reviewing backend sound engine and creating a basic mixer API that the game can 
+  use to conveniently play sound. Use RXI's api for reference.
+
+Gameplay:
+- Thinking about how you can make the resource meter make sense.
+
+--- 
 
 - Later: Fix draw order.
+
+
+Gameplay
+- Either each level should have a different picaxe/resource meter, or there should
+  be a fixed amount that can be replenished on later/larger levels by some special
+	tile in the map if the player touches it.
+- Consider being able to place ladders that also take up your "resources" meter.
 
 ---
 STRETCH: FINISH BY END OF WEEKEND
