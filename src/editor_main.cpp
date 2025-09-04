@@ -28,16 +28,16 @@ struct AppState {
   G_AssetContext *assets;
   G_MapStorage maps;
   
-  ED_ChoiceMenu choice_menu;
-  ED_ResizeMenu resize_menu;
-  ED_MapMenu map_menu;
+  ED_ChoiceControl choice_ctrl;
+  ED_ResizeControl resize_ctrl;
+  ED_MapControl map_ctrl;
   
   ED_UndoContext undo;
   
   F32 save_text_a;
   G_TransitionF32 save_text_tr;
   
-  B32 menu_toggle = 1;
+  B32 ctrl_toggle = 1;
 };
 
 function void
@@ -57,48 +57,48 @@ update(AppState *app)
   
   g_get_input(window, input, events);
   
-  ed_map_menu_update(&app->map_menu, &app->choice_menu, &app->maps, &app->undo, input);
-  ed_choice_menu_update(&app->choice_menu, input);
-  ed_resize_menu_update(&app->resize_menu, &app->map_menu, &app->maps, &app->undo, input);
+  ed_map_ctrl_update(&app->map_ctrl, &app->choice_ctrl, &app->maps, &app->undo, input);
+  ed_choice_ctrl_update(&app->choice_ctrl, input);
+  ed_resize_ctrl_update(&app->resize_ctrl, &app->map_ctrl, &app->maps, &app->undo, input);
   
   //
-  // Show/hide menus
+  // Show/hide ctrls
   //
   
-  B32 do_menu_transition = 0;
+  B32 do_ctrl_transition = 0;
   if (g_key_pressed(input, G_Key_F1)) {
-    do_menu_transition = 1;
+    do_ctrl_transition = 1;
   }
   
-  ED_ChoiceMenu *choice_menu = &app->choice_menu;
-  ED_ResizeMenu *resize_menu = &app->resize_menu;
+  ED_ChoiceControl *choice_ctrl = &app->choice_ctrl;
+  ED_ResizeControl *resize_ctrl = &app->resize_ctrl;
   
-  if (do_menu_transition) {
+  if (do_ctrl_transition) {
     static F32 base_x_offset = 400;
     
-    switch (app->menu_toggle) {
+    switch (app->ctrl_toggle) {
       case 0: {
-        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
-        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
-        app->menu_toggle = 1;
+        g_transition_f32_start(&choice_ctrl->base_x_transition, choice_ctrl->base_x, choice_ctrl->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
+        g_transition_f32_start(&resize_ctrl->base_x_transition, resize_ctrl->base_x, resize_ctrl->base_x - base_x_offset, 0.123f, G_TransitionCurve_QuinticEaseInOut);
+        app->ctrl_toggle = 1;
       }break;
       case 1: {
-        g_transition_f32_start(&choice_menu->base_x_transition, choice_menu->base_x, choice_menu->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
-        g_transition_f32_start(&resize_menu->base_x_transition, resize_menu->base_x, resize_menu->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
-        app->menu_toggle = 0;
+        g_transition_f32_start(&choice_ctrl->base_x_transition, choice_ctrl->base_x, choice_ctrl->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
+        g_transition_f32_start(&resize_ctrl->base_x_transition, resize_ctrl->base_x, resize_ctrl->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
+        app->ctrl_toggle = 0;
       }break;
     }
   }
   
   //
-  // Update menu show/hide transitions
+  // Update ctrl show/hide transitions
   //
   
-  g_transition_f32_update(&choice_menu->base_x_transition, &choice_menu->base_x, delta_time);
-  g_transition_f32_update(&resize_menu->base_x_transition, &resize_menu->base_x, delta_time);
+  g_transition_f32_update(&choice_ctrl->base_x_transition, &choice_ctrl->base_x, delta_time);
+  g_transition_f32_update(&resize_ctrl->base_x_transition, &resize_ctrl->base_x, delta_time);
   
-  ED_MapMenu *map_menu = &app->map_menu;
-  G_TileMap *map = ed_map_get(&app->maps, map_menu->current_map_idx);
+  ED_MapControl *map_ctrl = &app->map_ctrl;
+  G_TileMap *map = ed_map_get(&app->maps, map_ctrl->current_map_idx);
   
   //
   // Undo
@@ -144,13 +144,13 @@ render(AppState *app)
   r_set_viewport(os_window_client_rect(window));
   r_begin_frame(renderer); 
   
-  // @Todo: Why even pass an arena to choice_menu_render? Just use a scratch
+  // @Todo: Why even pass an arena to choice_ctrl_render? Just use a scratch
   // arena inside the function.
   TempArena tmp = arena_temp_begin(app->arena);
   
-  ed_choice_menu_render(tmp.arena, renderer, font, assets, &app->choice_menu);
-  ed_map_menu_render(renderer, assets, &app->maps, &app->map_menu);
-  ed_resize_menu_render(renderer, &app->resize_menu);
+  ed_choice_ctrl_render(tmp.arena, renderer, font, assets, &app->choice_ctrl);
+  ed_map_ctrl_render(renderer, assets, &app->maps, &app->map_ctrl);
+  ed_resize_ctrl_render(renderer, &app->resize_ctrl);
   
   //
   // Text and labels
@@ -160,7 +160,7 @@ render(AppState *app)
   
   r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
   
-  String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", app->map_menu.current_map_idx);
+  String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", app->map_ctrl.current_map_idx);
   r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
   
   r_text(renderer, S8("SAVED"), font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,app->save_text_a), 0);
@@ -194,29 +194,29 @@ entry_point(void)
   
   {
     app.undo = ed_undo_make();
-    G_TileMap *map = ed_map_get(&app.maps, app.map_menu.current_map_idx);
+    G_TileMap *map = ed_map_get(&app.maps, app.map_ctrl.current_map_idx);
   }
   
   {
-    app.map_menu.base_x = 400;
-    app.map_menu.base_y = 120;
-    app.map_menu.scale = 60;
+    app.map_ctrl.base_x = 400;
+    app.map_ctrl.base_y = 120;
+    app.map_ctrl.scale = 60;
   }
   
   {
-    app.choice_menu.scale = 60;
-    app.choice_menu.base_x = 1000;
-    app.choice_menu.base_y = 40;
-    app.choice_menu.pad_x = 120;
-    app.choice_menu.pad_y = 8;
-    app.choice_menu.column_size = 6;
+    app.choice_ctrl.scale = 60;
+    app.choice_ctrl.base_x = 1000;
+    app.choice_ctrl.base_y = 40;
+    app.choice_ctrl.pad_x = 120;
+    app.choice_ctrl.pad_y = 8;
+    app.choice_ctrl.column_size = 6;
   }
   
   {
-    app.resize_menu.base_x = 1060;
-    app.resize_menu.base_y = 540;
-    app.resize_menu.square_size = 50;
-    app.resize_menu.mode = ED_ResizeMode_Append;
+    app.resize_ctrl.base_x = 1060;
+    app.resize_ctrl.base_y = 540;
+    app.resize_ctrl.square_size = 50;
+    app.resize_ctrl.mode = ED_ResizeMode_Append;
   }
   
   while (!app.quit) {

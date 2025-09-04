@@ -35,7 +35,7 @@ function void ed_undo_pop(ED_UndoContext *undo, G_TileMap *map);
 // Tile choice controls
 //
 
-struct ED_ChoiceMenu {
+struct ED_ChoiceControl {
   F32 scale;
   F32 base_x;
   F32 base_y;
@@ -69,14 +69,14 @@ global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
   { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_R },
 };
 
-function void ed_choice_menu_update(ED_ChoiceMenu *menu, G_Input *input);
-function void ed_choice_menu_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetContext *assets, ED_ChoiceMenu *menu);
+function void ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input);
+function void ed_choice_ctrl_render(Arena *arena, R_Context *renderer, R_Font *font, G_AssetContext *assets, ED_ChoiceControl *ctrl);
 
 //
 // Tilemap-editing controls
 //
 
-struct ED_MapMenu {
+struct ED_MapControl {
   F32 base_x;
   F32 base_y;
   F32 scale; 
@@ -89,8 +89,8 @@ struct ED_MapMenu {
   S32 selected_tile_idx = -1;
 };
 
-function void ed_map_menu_update(ED_MapMenu *menu, ED_ChoiceMenu *choice_menu, G_MapStorage *maps, ED_UndoContext *undo, G_Input *input);
-function void ed_map_menu_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *maps, ED_MapMenu *menu);
+function void ed_map_ctrl_update(ED_MapControl *ctrl, ED_ChoiceControl *choice_ctrl, G_MapStorage *maps, ED_UndoContext *undo, G_Input *input);
+function void ed_map_ctrl_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *maps, ED_MapControl *ctrl);
 
 //
 // Tilemap resizing controls
@@ -114,7 +114,7 @@ struct ED_ResizeOption {
   RectF32 rect;
 };
 
-struct ED_ResizeMenu {
+struct ED_ResizeControl {
   F32 base_x;
   F32 base_y;
   F32 square_size;
@@ -126,8 +126,8 @@ struct ED_ResizeMenu {
   G_TransitionF32 base_x_transition;
 };
 
-function void ed_resize_menu_update(ED_ResizeMenu *menu, ED_MapMenu *map_menu, G_MapStorage *maps, ED_UndoContext *undo, G_Input *input);
-function void ed_resize_menu_render(R_Context *renderer, ED_ResizeMenu *menu);
+function void ed_resize_ctrl_update(ED_ResizeControl *ctrl, ED_MapControl *map_ctrl, G_MapStorage *maps, ED_UndoContext *undo, G_Input *input);
+function void ed_resize_ctrl_render(R_Context *renderer, ED_ResizeControl *ctrl);
 
 //
 // Tilemap growing/shrinking helpers
