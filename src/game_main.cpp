@@ -21,7 +21,7 @@ struct GameState {
   R_Font *font;
   G_AssetContext *assets;
   
-  U32 current_map_idx; 
+  S32 current_map_idx; 
   G_TileMap current_map;
   G_MapStorage maps;
   
@@ -48,6 +48,25 @@ update(void)
     }
   }
   g_get_input(window, &game.input, events);
+  
+  S32 new_map_idx = game.current_map_idx;
+  
+  if (g_key_pressed(&game.input, G_Key_R)) {
+    new_map_idx += 1;
+    new_map_idx = Min(new_map_idx, G_MAPS_MAX);
+  }
+  if (g_key_pressed(&game.input, G_Key_E)) {
+    new_map_idx -= 1;
+    new_map_idx = Max(new_map_idx, 0);
+  }
+  
+  if (new_map_idx != game.current_map_idx) {
+    game.current_map = g_maps_get_copy(&game.maps, new_map_idx);
+    game.current_map_idx = new_map_idx;
+    
+    game.level = g_level_from_tilemap(&game.current_map);
+    game.level.map = &game.current_map;
+  }
   
   F32 delta_time = 0;
   {
