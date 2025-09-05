@@ -51,11 +51,11 @@ update(void)
   
   S32 new_map_idx = game.current_map_idx;
   
-  if (g_key_pressed(&game.input, G_Key_R)) {
+  if (g_key_pressed(&game.input, G_Key_F2)) {
     new_map_idx += 1;
     new_map_idx = Min(new_map_idx, G_MAPS_MAX);
   }
-  if (g_key_pressed(&game.input, G_Key_E)) {
+  if (g_key_pressed(&game.input, G_Key_F1)) {
     new_map_idx -= 1;
     new_map_idx = Max(new_map_idx, 0);
   }
