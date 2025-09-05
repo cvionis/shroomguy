@@ -73,7 +73,9 @@ update(AppState *app)
   ED_ChoiceControl *choice_ctrl = &app->choice_ctrl;
   ED_ResizeControl *resize_ctrl = &app->resize_ctrl;
   
-  if (do_ctrl_transition) {
+  B32 transition_inactive = !(resize_ctrl->base_x_transition.active && choice_ctrl->base_x_transition.active);
+  
+  if (do_ctrl_transition && transition_inactive) {
     static F32 base_x_offset = 400;
     
     switch (app->ctrl_toggle) {
@@ -83,19 +85,12 @@ update(AppState *app)
         app->ctrl_toggle = 1;
       }break;
       case 1: {
-        g_transition_f32_start(&choice_ctrl->base_x_transition, choice_ctrl->base_x, choice_ctrl->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
-        g_transition_f32_start(&resize_ctrl->base_x_transition, resize_ctrl->base_x, resize_ctrl->base_x + base_x_offset, 0.05f, G_TransitionCurve_ExponentialEaseIn);
+        g_transition_f32_start(&choice_ctrl->base_x_transition, choice_ctrl->base_x, choice_ctrl->base_x + base_x_offset, 0.115f, G_TransitionCurve_ExponentialEaseIn);
+        g_transition_f32_start(&resize_ctrl->base_x_transition, resize_ctrl->base_x, resize_ctrl->base_x + base_x_offset, 0.115f, G_TransitionCurve_ExponentialEaseIn);
         app->ctrl_toggle = 0;
       }break;
     }
   }
-  
-  //
-  // Update ctrl show/hide transitions
-  //
-  
-  g_transition_f32_update(&choice_ctrl->base_x_transition, &choice_ctrl->base_x, delta_time);
-  g_transition_f32_update(&resize_ctrl->base_x_transition, &resize_ctrl->base_x, delta_time);
   
   ED_MapControl *map_ctrl = &app->map_ctrl;
   G_TileMap *map = ed_map_get(&app->maps, map_ctrl->current_map_idx);
@@ -103,7 +98,6 @@ update(AppState *app)
   //
   // Undo
   //
-  
   
   if (g_key_pressed(input, G_Key_Z)) {
     ed_undo_pop(&app->undo, map);
@@ -129,6 +123,12 @@ update(AppState *app)
     g_transition_f32_start(&app->save_text_tr, 1, 0, 0.05f, G_TransitionCurve_QuinticEaseInOut);
   }
   
+  //
+  // Update transitions
+  //
+  
+  g_transition_f32_update(&choice_ctrl->base_x_transition, &choice_ctrl->base_x, delta_time);
+  g_transition_f32_update(&resize_ctrl->base_x_transition, &resize_ctrl->base_x, delta_time);
   g_transition_f32_update(&app->save_text_tr, &app->save_text_a, delta_time);
 }
 
