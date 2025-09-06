@@ -12,23 +12,24 @@ struct M_Sound {
 };
 
 struct M_SoundNode {
-  M_SoundNode *next;
+  M_SoundNode *list_next;
+  M_SoundNode *free_next;
   M_Sound v;
 };
 
 struct M_Context {
   Arena *arena;
   
-  M_SoundNode *first;
-  M_SoundNode *last;
-  M_SoundNode *free; // @Note: Reserved when I want to be able to delete sounds
+  M_SoundNode *sounds_first;
+  M_SoundNode *sounds_last;
+  M_SoundNode *sounds_free; // @Note: Reserved when I want to be able to delete sounds
   S32 sounds_count;
 };
 
 // Note: sound backend needs to be initialized before calling any of these.
 
-function M_Context *m_ctx_alloc(void);
-function void m_ctx_release(M_Context *ctx);
+function M_Context *m_context_alloc(void);
+function void m_context_release(M_Context *ctx);
 
 // @Note: Sounds are not dynamically allocated -- we're just returning pointer to a 
 // sound node's value.

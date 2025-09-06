@@ -30,7 +30,8 @@ struct GameState {
   G_Input input;
   G_MineState mine;
   
-  S_Source source;
+  M_Context *mixer;
+  M_Sound *sound;
   
   B32 quit;
   B32 lost;
@@ -62,7 +63,7 @@ update(void)
     new_map_idx = Max(new_map_idx, 0);
   }
   if (g_key_pressed(&game.input, G_Key_Space)) {
-    game.source.pos = 0;
+    m_sound_play(game.sound);
   }
   
   if (new_map_idx != game.current_map_idx) {
@@ -119,13 +120,12 @@ update(void)
   // Sounds
   //
   
-#if 0
   m_begin_frame(game.mixer);
   m_process(game.mixer);
   m_mix(game.mixer);
   m_end_frame(game.mixer);
-#endif
   
+#if 0
   {
     s_lock_buffer();
     
@@ -143,6 +143,7 @@ update(void)
     s_unlock_buffer();
     s_advance_buffer(write_count);
   }
+#endif
 }
 
 function void 
@@ -233,7 +234,10 @@ entry_point(void)
   game.renderer = r_context_alloc();
   game.font = r_font_ttf_parse_and_bake(game.arena, S8("../data/fonts/Ithaca.ttf"));
   game.assets = g_assets_alloc(S8("../data"));
-  game.source = s_source_load(S8("../data/sounds/mine_stone.mp3"), 48000);
+  
+  game.mixer = m_context_alloc();
+  // @Todo: Don't crash when the file isn't found...
+  game.sound = m_sound_from_file(game.mixer, S8("../data/sounds/mine_stone.mp3"));
   
   game.maps = g_maps_read(S8("../data/maps/default.maps"));
   if (game.maps.count > 0) {
@@ -262,6 +266,7 @@ entry_point(void)
   
   //g_maps_write(&game.maps, S8("../data/maps/default.maps"));
   
+  m_context_release(game.mixer);
   g_undo_release(&game.undo);
   g_assets_release(game.assets);
   r_context_release(game.renderer);
