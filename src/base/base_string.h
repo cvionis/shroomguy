@@ -38,6 +38,28 @@ function B32 str16_read(void *dst, String16 str, U64 off, U64 size);
 #define S16(lit) {(U16 *)lit, sizeof(lit)-1}
 
 //
+// Unicode
+//
+
+struct UnicodeDecode {
+  U32 codepoint;
+  U32 adv;
+};
+
+function UnicodeDecode utf8_decode(U8 *in, U64 max);
+function UnicodeDecode utf16_decode(U16 *in, U64 max);
+function U32 utf8_encode(U8 *out, U32 codepoint);
+function U32 utf16_encode(U16 *out, U32 codepoint);
+
+//
+// String conversions
+//
+
+// Note: Values returned by these functions are nul-terminated.
+function String8 str8_from_str16(Arena *arena, String16 str);
+function String16 str16_from_str8(Arena *arena, String8 str);
+
+//
 // String lists
 //
 

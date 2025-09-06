@@ -3,8 +3,9 @@
 struct M_Sound {
   S_Source source;
   
+  B32 active; 
+  
   B32 loop;   // nonzero for loop; 0 for no loop
-  B32 stopped;; 
   F32 volume; // [0, 1]
   
   F32 pan;    // [-1,1]
@@ -39,6 +40,7 @@ function void m_sound_pause(M_Sound *sound);
 function void m_sound_stop(M_Sound *sound);
 
 function void m_sound_set_loop(M_Sound *sound, B32 loop);
+function void m_sound_set_volume(M_Sound *sound, F32 volume);
 function void m_sound_set_pan(M_Sound *sound, F32 pan);
 function void m_sound_set_pitch(M_Sound *sound, F32 pitch);
 

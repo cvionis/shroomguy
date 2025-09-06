@@ -18,6 +18,7 @@ m_context_release(M_Context *ctx)
   }
 }
 
+// @Todo: Don't crash when the file isn't found...
 function M_Sound *
 m_sound_from_file(M_Context *ctx, String8 path)
 {
@@ -31,7 +32,11 @@ m_sound_from_file(M_Context *ctx, String8 path)
     M_SoundNode *node = ArenaPushStruct(ctx->arena, M_SoundNode);
     SLLQueuePushN(ctx->sounds_first, ctx->sounds_last, node, list_next);
     
+    node->v.volume = 1;
+    node->v.pan = 0;
+    node->v.pitch = 1;
     MemoryCopyStruct(&node->v.source, &source);
+    
     result = &node->v;
   }
   
@@ -42,26 +47,33 @@ m_sound_from_file(M_Context *ctx, String8 path)
 function void 
 m_sound_play(M_Sound *sound)
 {
+  sound->active = 1;
   sound->source.pos = 0;
 }
 
 function void
 m_sound_pause(M_Sound *sound)
 {
-  sound->stopped = 1;
+  sound->active = 0;
 }
 
 function void
 m_sound_stop(M_Sound *sound)
 {
   sound->source.pos = 0;
-  sound->stopped = 1;
+  sound->active = 0;
 }
 
 function void 
 m_sound_set_loop(M_Sound *sound, B32 loop)
 {
   sound->loop = loop;
+}
+
+function void
+m_sound_set_volume(M_Sound *sound, F32 volume)
+{
+  sound->volume = volume;
 }
 
 function void
@@ -104,10 +116,18 @@ m_process(M_Context *ctx)
     M_Sound *sound = &n->v;
     S_Source *source = &sound->source;
     
-    // @Todo: set the source's stopped = 1 when it's done, and handle looping.
-    // @Note: M_Sound's playback speed would modify play count.
-    if (!sound->stopped) {
+    if (sound->active) {
+      // @Note: M_Sound's playback speed would modify play count.
       s_source_update(source, play_count);
+    }
+    
+    if (source->pos >= source->count) {
+      if (sound->loop) {
+        source->pos = 0;
+      }
+      else {
+        sound->active = 0;
+      }
     }
   }
 }
@@ -125,7 +145,6 @@ m_mix(M_Context *ctx)
     M_Sound *sound = &n->v;
     S_Source *source = &sound->source;
     
-    // @Note: M_Sound's volume, pan, pitch would be passed to m_source_mix.
-    s_source_mix(source, buff, write_count, 1.f);
+    s_source_mix(source, buff, write_count, sound->volume, sound->pan, 1);
   }
 }

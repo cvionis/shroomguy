@@ -237,11 +237,6 @@ is_whitespace(char c)
 // Unicode
 //
 
-struct UnicodeDecode {
-  U32 codepoint;
-  U32 adv;
-};
-
 // true if the byte is a valid continuation byte
 #define cont(byte) (((byte) & 0xC0) == 0x80)
 
@@ -367,6 +362,10 @@ utf16_encode(U16 *out, U32 codepoint)
   
   return adv;
 }
+
+//
+// String conversions
+//
 
 // NOTE: Result is nul-terminated
 function String8

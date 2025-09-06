@@ -332,20 +332,12 @@ s_source_load(String8 path, U32 sample_rate)
   S_Source source = {0};
   HR(MFStartup(MF_VERSION, MFSTARTUP_LITE));
   
-  char *path_ptr = (char *)path.data; 
-  
-  // TODO: Write your own routines to convert between UTF8 -> UT16, and do some 
-  // research on those and other encodings before you do.
-  // TODO: Scratch arenas
-  // Convert path to a wide string 
-  S32 size_needed = MultiByteToWideChar(CP_UTF8, 0, path_ptr, -1, 0, 0);
-  wchar_t *path_wide = (wchar_t *)malloc(size_needed * sizeof(wchar_t));
-  MultiByteToWideChar(CP_UTF8, 0, path_ptr, -1, path_wide, size_needed);
+  TempArena scratch = arena_scratch_begin(0,0);
+  String16 path16 = str16_from_str8(scratch.arena, path);
+  arena_scratch_end(scratch);
   
   IMFSourceReader* reader;
-	HR(MFCreateSourceReaderFromURL(path_wide, 0, &reader));
-  
-  free(path_wide); // NOTE: Temporary
+  HR(MFCreateSourceReaderFromURL((LPCWSTR)path16.data, 0, &reader));
   
   // Read only the first audio stream
   HR(reader->SetStreamSelection((DWORD)MF_SOURCE_READER_ALL_STREAMS, FALSE));

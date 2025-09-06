@@ -236,8 +236,10 @@ entry_point(void)
   game.assets = g_assets_alloc(S8("../data"));
   
   game.mixer = m_context_alloc();
-  // @Todo: Don't crash when the file isn't found...
+  
   game.sound = m_sound_from_file(game.mixer, S8("../data/sounds/mine_stone.mp3"));
+  m_sound_set_loop(game.sound, 1);
+  m_sound_set_pan(game.sound, 0);
   
   game.maps = g_maps_read(S8("../data/maps/default.maps"));
   if (game.maps.count > 0) {
