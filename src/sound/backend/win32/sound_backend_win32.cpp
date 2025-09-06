@@ -1,5 +1,5 @@
 //
-// Win32 implementation of the sound backend API
+// Win32 implementation of the source backend API
 //
 
 #pragma comment(lib, "avrt")
@@ -276,7 +276,7 @@ s_init(U32 sample_rate, U32 channel_count, U32 channel_mask)
   
   s_win32_backend->sample_buff = 0;
   s_win32_backend->sample_buff_count = 0;
-  s_win32_backend->sound_pos_adv = 0;
+  s_win32_backend->source_pos_adv = 0;
   s_win32_backend->rb_view1 = (U8 *)view1;
   s_win32_backend->rb_view2 = (U8 *)view2;
   s_win32_backend->rb_size = rb_size;
@@ -326,10 +326,10 @@ s_release(void)
 // Sound creation/destruction
 //
 
-function S_Sound 
-s_sound_load(String8 path, U32 sample_rate)
+function S_Source 
+s_source_load(String8 path, U32 sample_rate)
 {
-  S_Sound sound = {0};
+  S_Source source = {0};
   HR(MFStartup(MF_VERSION, MFSTARTUP_LITE));
   
   char *path_ptr = (char *)path.data; 
@@ -398,9 +398,9 @@ s_sound_load(String8 path, U32 sample_rate)
     // Resize buffer if needed
     U64 available = capacity - used;
     if (available < sample_data_size) {
-      sound.samples = (S16 *)realloc(sound.samples, capacity += 64 * 1024);
+      source.samples = (S16 *)realloc(source.samples, capacity += 64 * 1024);
     }
-    MemoryCopy((U8 *)sound.samples + used, sample_data, sample_data_size);
+    MemoryCopy((U8 *)source.samples + used, sample_data, sample_data_size);
     used += sample_data_size;
     
     HR(media_buffer->Unlock());
@@ -412,9 +412,9 @@ s_sound_load(String8 path, U32 sample_rate)
   reader->Release();
   HR(MFShutdown());
   
-  sound.count = used / fmt.Format.nBlockAlign;
-  sound.pos = sound.count;
-  return sound;
+  source.count = used / fmt.Format.nBlockAlign;
+  source.pos = source.count;
+  return source;
 }
 
 function void
@@ -454,7 +454,7 @@ s_lock_buffer(void)
 	backend->rb_write_off = lock_off;
   
 	// reset play sample count, use 0 for playCount when LockBuffer is called first time
-	backend->sound_pos_adv = backend->first_lock ? 0 : backend->thread_samples_submitted;
+	backend->source_pos_adv = backend->first_lock ? 0 : backend->thread_samples_submitted;
 	backend->first_lock = 0;
 	backend->thread_samples_submitted = 0;
   
@@ -509,6 +509,6 @@ s_get_write_count(void)
 function U64 
 s_get_play_count(void)
 {
-  U64 play_count = s_win32_backend->sound_pos_adv;
+  U64 play_count = s_win32_backend->source_pos_adv;
   return play_count;
 }

@@ -1,16 +1,64 @@
 // TODO
 
-Cleanup:
-- Organize editor code into its own file
-- Rename "Menu" -> "Control"
-
 Bug fixes:
-- Crashes when shrinking map with width or height of 0
-- Editor menu UI base_x bug when show/hide is spammed
+- Game: When pressing R to restart in the game, entire level becomes lava
 
 Sound:
-- Reviewing backend sound engine and creating a basic mixer API that the game can 
-  use to conveniently play sound. Use RXI's api for reference.
+API -- What I like:
+- I think I'll keep the play count and write count getters just to keep the api
+  more granular and avoid making those parameters fixed opaque values.
+- I also think the sample buffer getter makes sense for the same reason.
+
+API -- What I don't like:
+- I don't like how I'm manually calling MemoryZero on the buffer before mixing the sounds
+  with it.
+- Volume and panning of sound should be stored in the  Sound struct and set using
+	api's like s_sound_set_volume().
+
+API -- Note:
+- You can keep the backend API how it is mostly, and create a higher-level, less granular
+  API that calls that API, while allowing the application to also skip the higher-level
+	API and call the lower-levle one when it needs more granularity.
+
+- The higher-level API will work with Effect's rather than Sound's, which contains
+	sound data as well as parameters that will be passed to the backend s_sound_mix() api.
+
+...
+
+- Will probably need to be able to divide sounds being played into separate *channels*,
+  each which can have their own volume, pan, pitch effects.
+
+		Mixer : { channel0 : { effect0, effect1 } , channel1, ... } 
+
+	Note that sounds will not be stored in channels -- they just store a set 
+	of parameters shared among several  sounds. This could be done like the following.
+	The channel number provided just indexes into an array of channels stored in a local
+	mixer context created by the application.
+
+		s_channel_set_volume(S32 channel, F32 volume);
+		s_channel_play_effect(S32 channel, S_Effect *effect);
+
+		...
+
+		struct S_Channel {
+			F32 volume;
+			F32 pan;
+		};
+
+		struct S_Mixer {
+			S_Channel channels[S_MIXER_CHANNELS_MAX];
+			S32 channels_count; 
+		};
+
+- I'm not sure if I want to store a table of sounds that can be looked up by name in the
+	mixer layer -- I have a subtle feeling that this might be better suited to a game-
+	specific asset system. Therefore I'm not going to make any functions in the high-level
+	mixer API take a name to look up an effect in a table; they're going to take S_Effect *.
+
+- Rename higher-level API "mixer" rather than "player"
+- Use signed integers instead of unsigned in most places.
+- Passing sample rate to s_sound_load is kind of redundant; you can just sample 
+	it at the same rate as the one passed in s_init().
 
 Gameplay:
 - Thinking about how you can make the resource meter make sense.

@@ -1,13 +1,13 @@
 #pragma once
 
-enum S_SoundFormat {
+enum S_ChannelMask {
 };
 
-struct S_Sound {
+struct S_Source {
   S16 *samples;
   U64 pos;
   U64 count; 
-  S_SoundFormat fmt; 
+  // @Todo: Sample rate?
 };
 
 function void s_init(U32 sample_rate, U32 channel_count, U32 channel_mask);
@@ -21,6 +21,6 @@ function void s_lock_buffer(void);
 function void s_unlock_buffer(void);
 function void s_advance_buffer(U64 sample_count);
 
-function S_Sound s_sound_load(String8 path, U32 sample_rate);
-function void s_sound_update(S_Sound *sound, U64 sample_count);
-function void s_sound_mix(S_Sound *sound, F32 *out_samples, U64 out_sample_count, F32 volume); 
+function S_Source s_source_load(String8 path, U32 sample_rate);
+function void s_source_update(S_Source *source, U64 sample_count);
+function void s_source_mix(S_Source *source, F32 *out_samples, U64 out_sample_count, F32 volume); 

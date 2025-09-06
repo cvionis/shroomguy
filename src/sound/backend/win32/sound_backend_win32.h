@@ -20,9 +20,9 @@ struct S_Win32_Backend {
   // Public state
   //
   
-  // The amount by which to advance each sound's playback position
+  // The amount by which to advance each source's playback position
   // every frame, determined by `thread_samples_submitted`
-  U64 sound_pos_adv; 
+  U64 source_pos_adv; 
   
   // Sample buffer state
   void *sample_buff;
@@ -50,7 +50,7 @@ struct S_Win32_Backend {
   U8 *rb_view2; 
   U32 rb_size; 
   
-  // RB data read by audio thread, written to by thread using the sound API.
+  // RB data read by audio thread, written to by thread using the source API.
   // Safe read range:  [rb_read_off, rb_lock_off)
   // Safe write range: [write_off, read_off)
   

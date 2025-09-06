@@ -7,4 +7,4 @@
 #endif
 
 #include "sound/sound_backend.h"
-#include "sound/sound_player.h"
+#include "sound/sound_mixer.h"

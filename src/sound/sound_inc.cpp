@@ -5,4 +5,4 @@
 #endif
 #include "sound/sound_backend.cpp"
 
-#include "sound/sound_player.cpp"
+#include "sound/sound_mixer.cpp"
