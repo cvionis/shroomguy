@@ -235,7 +235,7 @@ entry_point(void)
   game.assets = g_assets_alloc(S8("../data"));
   game.source = s_source_load(S8("../data/sounds/mine_stone.mp3"), 48000);
   
-  ,game.maps = g_maps_read(S8("../data/maps/default.maps"));
+  game.maps = g_maps_read(S8("../data/maps/default.maps"));
   if (game.maps.count > 0) {
     U32 last_played_idx = game.maps.last_played_map_idx;
     G_TileMap last_played_map = g_maps_get_copy(&game.maps, last_played_idx);
