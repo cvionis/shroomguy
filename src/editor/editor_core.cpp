@@ -77,7 +77,11 @@ ed_tilemap_column_append_left(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  S32 tiles_size = sizeof(G_TileToken)*tiles_count;
+  for (S32 idx = 0; idx < tiles_size; idx += 1) {
+    map->tokens[idx] = G_TileToken_Empty;
+  }
+  
   map->width += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -100,8 +104,11 @@ ed_tilemap_column_append_right(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
   
-  // TODO: Consider filling with floor tiles instead of blank tiles.
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  S32 tiles_size = sizeof(G_TileToken)*tiles_count;
+  for (S32 idx = 0; idx < tiles_size; idx += 1) {
+    map->tokens[idx] = G_TileToken_Empty;
+  }
+  
   map->width += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -176,7 +183,11 @@ ed_tilemap_row_append_top(Arena *arena, G_TileMap *map)
   
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  S32 tiles_size = sizeof(G_TileToken)*tiles_count;
+  for (S32 idx = 0; idx < tiles_size; idx += 1) {
+    map->tokens[idx] = G_TileToken_Empty;
+  }
+  
   map->height += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -198,7 +209,12 @@ ed_tilemap_row_append_bottom(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
   
-  MemoryZero(map->tokens, sizeof(G_TileToken)*tiles_count);
+  
+  S32 tiles_size = sizeof(G_TileToken)*tiles_count;
+  for (S32 idx = 0; idx < tiles_size; idx += 1) {
+    map->tokens[idx] = G_TileToken_Empty;
+  }
+  
   map->height += 1;
   
   for (S32 row = 0; row < height; row += 1) {
@@ -703,15 +719,15 @@ ed_map_ctrl_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *ma
   
   // All other tiles
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
-    sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
+    sprite = g_assets_get_sprite(assets, S8("sprites/null.png"));
     
     spr_x = base_x + scale * (token_idx % map_width);
     spr_y = base_y + scale * (token_idx / map_width);
     
     G_TileToken token = tokens[token_idx];
     switch (token) {
-      case G_TileToken_Null: {
-        sprite = 0;
+      case G_TileToken_Empty: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));;
       }break;
       case G_TileToken_Dirt: {
         sprite = g_assets_get_sprite(assets, S8("sprites/dirt.png"));

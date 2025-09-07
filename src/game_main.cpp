@@ -54,6 +54,7 @@ update(void)
   
   S32 new_map_idx = game.current_map_idx;
   
+  // DEBUG: Swap current map 
   if (g_key_pressed(&game.input, G_Key_F2)) {
     new_map_idx += 1;
     new_map_idx = Min(new_map_idx, G_MAPS_MAX);
@@ -62,28 +63,31 @@ update(void)
     new_map_idx -= 1;
     new_map_idx = Max(new_map_idx, 0);
   }
-  if (g_key_pressed(&game.input, G_Key_Space)) {
-    m_sound_play(game.sound);
-  }
-  
   if (new_map_idx != game.current_map_idx) {
     game.current_map = g_maps_get_copy(&game.maps, new_map_idx);
     game.current_map_idx = new_map_idx;
     
     game.level = g_level_from_tilemap(&game.current_map);
     game.level.map = &game.current_map;
+    
+    g_undo_clear(&game.undo);
   }
   
-  F32 delta_time = 0;
-  {
-    static F64 prev_ticks = 0;
-    F64 curr_ticks = os_get_ticks();
-    delta_time = (F32)(curr_ticks - prev_ticks);
-    delta_time = delta_time / (F32)os_get_ticks_frequency();
-    prev_ticks = curr_ticks; 
+  // DEBUG: Load editor changes
+  if (g_key_pressed(&game.input, G_Key_F12)) {
+    game.maps = g_maps_read(S8("../data/maps/default.maps"));
+    game.current_map = g_maps_get_copy(&game.maps, game.current_map_idx);
+    
+    G_TileMap *map = &game.maps.maps[game.current_map_idx];
+    game.level = g_level_from_tilemap(map);
+    game.level.map = map;
   }
   
-  // @Todo: Wrap all these operations in level-granularity helper functions
+  static F64 prev_ticks = 0;
+  F64 curr_ticks = os_get_ticks();
+  F32 delta_time = (F32)(curr_ticks - prev_ticks) / (F32)os_get_ticks_frequency();
+  prev_ticks = curr_ticks; 
+  
   if (g_key_pressed(&game.input, G_Key_Z)) {
     G_TileMap *map = game.level.map;
     g_undo_pop(&game.undo, map);
@@ -228,7 +232,7 @@ entry_point(void)
   s_init(48000, 2, SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT);
   
   game.arena = arena_alloc_default();
-  game.window = os_window_open(S8("Game"), 1280, 720);
+  game.window = os_window_open(S8("Shrewm"), 1280, 720);
   
   r_equip_window(game.window);
   game.renderer = r_context_alloc();
