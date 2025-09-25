@@ -3,7 +3,6 @@
 #include "font/font_inc.h"
 #include "render/render_inc.h"
 #include "sound/sound_inc.h"
-#include "async/async_inc.h"
 #include "game/game_inc.h"
 
 #include "base/base_inc.cpp"
@@ -11,7 +10,6 @@
 #include "font/font_inc.cpp"
 #include "render/render_inc.cpp"
 #include "sound/sound_inc.cpp"
-#include "async/async_inc.cpp"
 #include "game/game_inc.cpp"
 
 struct GameState {
@@ -52,35 +50,39 @@ update(void)
   }
   g_get_input(window, &game.input, events);
   
-  S32 new_map_idx = game.current_map_idx;
-  
-  // DEBUG: Swap current map 
-  if (g_key_pressed(&game.input, G_Key_F2)) {
-    new_map_idx += 1;
-    new_map_idx = Min(new_map_idx, G_MAPS_MAX);
-  }
-  if (g_key_pressed(&game.input, G_Key_F1)) {
-    new_map_idx -= 1;
-    new_map_idx = Max(new_map_idx, 0);
-  }
-  if (new_map_idx != game.current_map_idx) {
-    game.current_map = g_maps_get_copy(&game.maps, new_map_idx);
-    game.current_map_idx = new_map_idx;
+  {
+    // Swap current map 
+    S32 new_map_idx = game.current_map_idx;
     
-    game.level = g_level_from_tilemap(&game.current_map);
-    game.level.map = &game.current_map;
+    if (g_key_pressed(&game.input, G_Key_F2)) {
+      new_map_idx += 1;
+      new_map_idx = Min(new_map_idx, G_MAPS_MAX);
+    }
+    if (g_key_pressed(&game.input, G_Key_F1)) {
+      new_map_idx -= 1;
+      new_map_idx = Max(new_map_idx, 0);
+    }
+    if (new_map_idx != game.current_map_idx) {
+      game.current_map = g_maps_get_copy(&game.maps, new_map_idx);
+      game.current_map_idx = new_map_idx;
+      
+      game.level = g_level_from_tilemap(&game.current_map);
+      game.level.map = &game.current_map;
+      
+      g_undo_clear(&game.undo);
+    }
     
-    g_undo_clear(&game.undo);
-  }
-  
-  // DEBUG: Load editor changes
-  if (g_key_pressed(&game.input, G_Key_F12)) {
-    game.maps = g_maps_read(S8("../data/maps/default.maps"));
-    game.current_map = g_maps_get_copy(&game.maps, game.current_map_idx);
-    
-    G_TileMap *map = &game.maps.maps[game.current_map_idx];
-    game.level = g_level_from_tilemap(map);
-    game.level.map = map;
+    // DEBUG: Load editor changes
+    if (g_key_pressed(&game.input, G_Key_F12)) {
+      g_undo_clear(&game.undo);
+      
+      game.maps = g_maps_read(S8("../data/maps/default.maps"));
+      game.current_map = g_maps_get_copy(&game.maps, game.current_map_idx);
+      
+      G_TileMap *map = &game.maps.maps[game.current_map_idx];
+      game.level = g_level_from_tilemap(map);
+      game.level.map = map;
+    }
   }
   
   static F64 prev_ticks = 0;
@@ -93,11 +95,7 @@ update(void)
     g_undo_pop(&game.undo, map);
     
     g_level_refresh_entities(&game.level);
-    
-    game.mine.v += 1;
-    game.mine.v = Min(game.mine.v, game.mine.max);
-    game.mine.ore_collected -= 1;
-    game.mine.ore_collected = Max(game.mine.ore_collected, 0);
+    g_mine_decollect(&game.mine);
     
     game.lost = 0;
   }
@@ -106,9 +104,7 @@ update(void)
     g_undo_restart(&game.undo, map);
     
     g_level_refresh_entities(&game.level);
-    
-    game.mine.v = game.mine.max;
-    game.mine.ore_collected = 0;
+    g_mine_reset(&game.mine);
     
     game.lost = 0;
   }
@@ -120,34 +116,10 @@ update(void)
     }
   }
   
-  //
-  // Sounds
-  //
-  
   m_begin_frame(game.mixer);
   m_process(game.mixer);
   m_mix(game.mixer);
   m_end_frame(game.mixer);
-  
-#if 0
-  {
-    s_lock_buffer();
-    
-    U64 write_count = s_get_write_count();
-    U64 play_count = s_get_play_count();
-    U32 bytes_per_sample = s_win32_backend->sample_buff_fmt->nBlockAlign; 
-    
-    s_source_update(&game.source, play_count);
-    
-    F32 *buff = s_get_sample_buffer();
-    MemorySet(buff, 0, write_count * bytes_per_sample);
-    
-    s_source_mix(&game.source, buff, write_count, 1.f);
-    
-    s_unlock_buffer();
-    s_advance_buffer(write_count);
-  }
-#endif
 }
 
 function void 
@@ -157,7 +129,7 @@ render(void)
   R_Context *renderer = game.renderer;
   G_AssetContext *assets = game.assets;
   
-  r_set_clear_color(v4f32(0,0,0,1));
+  r_set_clear_color(v4f32(0.128f,0.005f,0.005f,1));
   r_set_viewport(os_window_client_rect(window));
   r_begin_frame(renderer); 
   
@@ -257,20 +229,20 @@ entry_point(void)
   }
   else {
     // @Todo: Show an error MessageBox?
+    BreakDebugger();
   }
   
   game.undo = g_undo_make();
-  
-  // @Note: Starting value may differ across levels or change in some other way.
-  game.mine.max = 10;
-  game.mine.v = game.mine.max;
+  game.mine = g_mine_make(G_MINE_MAX);
   
   while (!game.quit) {
     update();
     render();
   }
   
-  //g_maps_write(&game.maps, S8("../data/maps/default.maps"));
+#if 0
+  g_maps_write(&game.maps, S8("../data/maps/default.maps"));
+#endif
   
   m_context_release(game.mixer);
   g_undo_release(&game.undo);

@@ -764,8 +764,7 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       }
       else if (dst_tile & G_TileToken_OreT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->ore_collected += 1;
-        mine->v -= 1;
+        g_mine_collect(mine);
         mined = 1;
       }
       
@@ -1351,4 +1350,40 @@ g_maps_get_copy(G_MapStorage *maps, U32 map_idx)
     MemoryCopy(&result, &maps->maps[map_idx], sizeof(G_TileMap));
   }
   return result;
+}
+
+//
+// Mining state
+//
+
+function G_MineState
+g_mine_make(S32 max)
+{
+  G_MineState result = {0};
+  result.max = max;
+  result.v = max;
+  return result;
+}
+
+function void 
+g_mine_decollect(G_MineState *mine) 
+{
+  mine->v += 1;
+  mine->v = Min(mine->v, mine->max);
+  mine->ore_collected -= 1;
+  mine->ore_collected = Max(mine->ore_collected, 0);
+}
+
+function void
+g_mine_collect(G_MineState *mine)
+{
+  mine->ore_collected += 1;
+  mine->v -= 1;
+}
+
+function void
+g_mine_reset(G_MineState *mine)
+{
+  mine->v = mine->max;
+  mine->ore_collected = 0;
 }

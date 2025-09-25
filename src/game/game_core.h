@@ -9,6 +9,7 @@
 #define G_LEVEL_BOULDERS_MAX 16
 #define G_AIR_ENEMY_HEALTH_MAX 1
 #define G_GROUND_ENEMY_HEALTH_MAX 2
+#define G_MINE_MAX 10
 
 //
 // Input
@@ -110,7 +111,6 @@ struct G_TransitionV2F32 {
 // Tiles & Tilemaps
 //
 
-// @Todo: Stages of stone and ore as they take several actions to mine
 enum G_TileToken {
   G_TileToken_Null,
   
@@ -300,6 +300,12 @@ function U32 g_air_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
 function U32 g_ore_count_from_tilemap(G_TileMap *map);
 function G_LevelBoulderInfo g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_TileMap *map);
 function G_Level g_level_from_tilemap(G_TileMap *map);
+
+// Mining state
+function G_MineState g_mine_make(S32 max);
+function void g_mine_decollect(G_MineState *mine);
+function void g_mine_collect(G_MineState *mine);
+function void g_mine_reset(G_MineState *mine);
 
 // Entities
 function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);

@@ -3,7 +3,6 @@
 #include "font/font_inc.h"
 #include "render/render_inc.h"
 #include "sound/sound_inc.h"
-#include "async/async_inc.h"
 #include "game/game_inc.h"
 #include "editor/editor_inc.h"
 
@@ -12,7 +11,6 @@
 #include "font/font_inc.cpp"
 #include "render/render_inc.cpp"
 #include "sound/sound_inc.cpp"
-#include "async/async_inc.cpp"
 #include "game/game_inc.cpp"
 #include "editor/editor_inc.cpp"
 

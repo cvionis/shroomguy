@@ -1,7 +1,26 @@
 // TODO
 
-Bug fixes:
-- Game: When pressing R to restart in the game, entire level becomes lava
+Codebase:
+- Carry over new sound layer to _Home
+- Carry over cleaned up bae_string to _Home
+- MemorySet: count should really be size as it means count in bytes
+
+Gameplay:
+- Touching bottom tile of level shouldn't kill you -- this is a flaw with lava logic.
+- Think about how you can make the resource meter make sense.
+  * Either each level should have a different picaxe/resource meter, or there should
+    be a fixed amount that can be replenished on later/larger levels by some special
+	  tile in the map if the player touches it.
+- Consider being able to place ladders that also take up your "resources" meter. Without
+	that the player can't ever increase his height in the level, which severely limits
+	what you can do in levels.
+- small boulders should probably be able to crush enemies from above.
+- Should create visual variation of background block that is stone.
+
+Cleanup:
+- Tile token kinds probably don't need to be bit fields.
+
+----------------------------------------
 
 Sound:
 API -- What I like:
@@ -60,19 +79,12 @@ API -- Note:
 - Passing sample rate to s_sound_load is kind of redundant; you can just sample 
 	it at the same rate as the one passed in s_init().
 
-Gameplay:
-- Thinking about how you can make the resource meter make sense.
+------------------------------------------------
 
 --- 
 
 - Later: Fix draw order.
 
-
-Gameplay
-- Either each level should have a different picaxe/resource meter, or there should
-  be a fixed amount that can be replenished on later/larger levels by some special
-	tile in the map if the player touches it.
-- Consider being able to place ladders that also take up your "resources" meter.
 
 ---
 STRETCH: FINISH BY END OF WEEKEND
