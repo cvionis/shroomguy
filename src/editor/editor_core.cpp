@@ -314,6 +314,13 @@ ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input)
     }
   }
   
+  for (S32 choice_idx = 0; choice_idx < ED_CHOICES_COUNT; choice_idx += 1) {
+    ED_ChoiceEntry *choice = &ed_choice_table[choice_idx];
+    if (g_key_pressed(input, choice->keybind)) {
+      ctrl->selected_choice_idx = choice_idx;
+    }
+  }
+#if 0
   if (g_key_pressed(input, G_Key_1)) {
     ctrl->selected_choice_idx = 0;
   }
@@ -347,6 +354,7 @@ ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input)
   else if (g_key_pressed(input, G_Key_R)) {
     ctrl->selected_choice_idx = 10;
   }
+#endif
 }
 
 function void
@@ -799,8 +807,13 @@ ed_codepoint_from_key(G_Key key)
     codepoint = '0' + delta;
   }
   else {
-    // @Note: Temporary
     switch (key) {
+      case G_Key_Q: {
+        codepoint = 'Q';
+      }break;
+      case G_Key_W: {
+        codepoint = 'W';
+      }break;
       case G_Key_E: {
         codepoint = 'E';
       }break;

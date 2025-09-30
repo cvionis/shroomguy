@@ -34,7 +34,7 @@ if "%release%"=="1" (
 )
 
 :: --- Compiler flags -----------------------------------------------------
-set exe_name=project.exe
+set exe_name=shrewm.exe
 
 set cl_build_flags=/DR_BACKEND_GL=1 /DBUILD_CLI=0 /DBUILD_DEBUG=%debug%
 set cl_warning_flags=/D_CRT_SECURE_NO_WARNINGS /wd4201 /wd4456 /wd4505 /W4
@@ -61,7 +61,7 @@ set linker_flags=/link %freetype%\build\freetype.lib /ignore:4099 /INCREMENTAL:n
 
 :: --- Build targets ------------------------------------------------------
 set targets=
-set targets=%targets% %root%\src\main.cpp
+set targets=%targets% %root%\src\game_main.cpp
 
 :: --- Compile and link the main program  ---------------------------------
 pushd %root%\build

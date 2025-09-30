@@ -17,6 +17,11 @@ Gameplay:
 - small boulders should probably be able to crush enemies from above.
 - Should create visual variation of background block that is stone.
 
+- Corner tiles
+- Tile transitions
+- Animations and game feel
+- Audio and music
+
 Cleanup:
 - Tile token kinds probably don't need to be bit fields.
 

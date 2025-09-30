@@ -122,12 +122,14 @@ enum G_TileToken {
   G_TileToken_OreT1        = (1 << 5),
   G_TileToken_OreT2        = (1 << 6),
   G_TileToken_Bedrock      = (1 << 7),
-  G_TileToken_Lava         = (1 << 8),
+  G_TileToken_Resource     = (1 << 8),
   G_TileToken_BoulderSmall = (1 << 9),
   G_TileToken_BoulderLarge = (1 << 10),
   G_TileToken_EnemyGround  = (1 << 11),
   G_TileToken_EnemyAir     = (1 << 12),
   G_TileToken_Player       = (1 << 13),
+  G_TileToken_Lava         = (1 << 14),
+  G_TileToken_Ladder       = (1 << 15),
 };
 
 enum G_TileMapFlags {
