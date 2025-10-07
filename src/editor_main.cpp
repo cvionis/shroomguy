@@ -185,15 +185,10 @@ entry_point(void)
   app.font = r_font_ttf_parse_and_bake(app.arena, S8("../data/fonts/Ithaca.ttf"));
   app.assets = g_assets_alloc(S8("../data"));
   
-  {
-    app.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
-    app.maps.count = G_MAPS_MAX;
-  }
-  
-  {
-    app.undo = ed_undo_make();
-    G_TileMap *map = ed_map_get(&app.maps, app.map_ctrl.current_map_idx);
-  }
+  app.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
+  app.maps.count = G_MAPS_MAX;
+  app.undo = ed_undo_make();
+  G_TileMap *map = ed_map_get(&app.maps, app.map_ctrl.current_map_idx);
   
   {
     app.map_ctrl.base_x = 400;
