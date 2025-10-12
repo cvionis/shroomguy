@@ -504,7 +504,28 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
         G_Entity *ent = g_small_boulder_from_tilemap_idx(level, dst_idx);
         should_move = g_entity_move(ent, level, dx, dy, move_transition).moved;
       }
-      if (ent_tile & G_TileToken_BoulderSmall) {
+      
+      // @Todo: I kind of just sharted this out. Clean up the logic a bit.
+      B32 to_ladder = 0;
+      B32 from_ladder = 0;
+      if (ent_tile & G_TileToken_Player) {
+        if (ent_tile & G_TileToken_Ladder) {
+          from_ladder = 1;
+          should_move = 1;
+        }
+        if (dst_tile & G_TileToken_Ladder) {
+          to_ladder = 1;
+          should_move = 1;
+          // Can't jump up to a ladder from a tile below the ladder
+          if (!(ent_tile & G_TileToken_Ladder)) {
+            if (dy < 0) {
+              to_ladder = 0;
+              should_move = 0;
+            }
+          }
+        }
+      }
+      else if (ent_tile & G_TileToken_BoulderSmall) {
         if (dst_tile & G_TileToken_EnemyGround) {
           G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
           should_move = g_entity_move(ent, level, dx, dy, move_transition).moved;
@@ -518,10 +539,26 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       if (should_move) {
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  move_transition.speed, move_transition.curve);
-        map->tokens[ent_idx] = src_tile;
-        map->tokens[dst_idx] = ent_tile;
-        entity->tilemap_idx = dst_idx;
-        should_move = 1;
+        if (to_ladder) {
+          if (from_ladder) {
+            map->tokens[ent_idx] = G_TileToken_Ladder;
+          }
+          else {
+            map->tokens[ent_idx] = src_tile;
+          }
+          map->tokens[dst_idx] = (G_TileToken)((U32)ent_tile | (U32)G_TileToken_Ladder);
+        }
+        else {
+          if (from_ladder) {
+            map->tokens[ent_idx] = G_TileToken_Ladder;
+            map->tokens[dst_idx] = G_TileToken_Player;
+          }
+          else {
+            map->tokens[ent_idx] = src_tile;
+            map->tokens[dst_idx] = ent_tile;
+          }
+          entity->tilemap_idx = dst_idx;
+        }
       }
       
       result.moved = should_move; 
@@ -878,7 +915,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     
-    G_EntityMoveResult move_result = g_entity_move(player, level, dx, 0, tr);
+    G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     
     // Move to the mined tile if there is not an entity sitting on the mined tile.
@@ -1218,6 +1255,10 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_Bedrock: {
         sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
       }break;
+    }
+    
+    if (token & G_TileToken_Ladder) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
     }
     
     g_render_sprite(renderer, sprite, spr_x, spr_y, scale);

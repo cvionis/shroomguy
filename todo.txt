@@ -3,7 +3,7 @@
 * Implement ladders and resource tiles
 * Give each level its own max player resources
 * Don't lose when touching bottom-most tile in a level
-* Make small boulders crush enemies but not ores/blocks
+* Make small boulders crush enemies, resource tiles but not ores/blocks
 
 ----
 
