@@ -1,5 +1,7 @@
 // TODO
 
+[ ] Make large boulder crushing logic on enemies similar to player-crushing logic
+		so it executes better visually
 [ ] Make small boulders crush enemies and resource tiles but not ores/blocks
 [ ] Give each level its own max player resources
 

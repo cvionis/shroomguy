@@ -908,26 +908,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   // @Note: Maybe you can create a function that returns the data calculated in the beginning of used by both _mine() and _move(), that can then be passed to both.
   
   G_TileMap *map = level->map;
-  
-  // Player
   G_Entity *player = &level->player;
-  if (dx || dy) {
-    g_undo_push(undo, map);
-    
-    G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
-    
-    G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
-    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
-    
-    // Move to the mined tile if there is not an entity sitting on the mined tile.
-    U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
-    G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
-    G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    if (!(a || b || c) && mine_result.mined) {
-      g_entity_move(player, level, dx, 0, tr);
-    }
-  }
   
   static B32 landed_on_lava = 0;
   G_EntityGravityResult gravity = g_entity_apply_gravity(player, level);
@@ -997,6 +978,12 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     if (gravity.drop_count >= 1) {
       should_crush = 1;
     }
+    // Don't let the player move when a boulder is falling/crushing something;
+    // if we do, they can dodge it by moving to an adjecent tile and "walk through"
+    // a boulder falling next to them.
+    if (boulder->move.active) {
+      dx = dy = 0;
+    }
     B32 done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
     if (done && should_crush) { 
       G_EntityCrushResult crush_result = g_entity_crush(boulder, level);
@@ -1060,6 +1047,24 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     g_transition_v2f32_update(&rsrc_tile->move, &rsrc_tile->pos, delta_time);
   }
   
+  // Player
+  if (dx || dy) {
+    g_undo_push(undo, map);
+    
+    G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
+    
+    G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
+    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
+    
+    // Move to the mined tile if there is not an entity sitting on the mined tile.
+    U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
+    G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
+    G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+    G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+    if (!(a || b || c) && mine_result.mined) {
+      g_entity_move(player, level, dx, 0, tr);
+    }
+  }
   
   return result;
 }
