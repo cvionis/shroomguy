@@ -511,17 +511,14 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       if (ent_tile & G_TileToken_Player) {
         if (ent_tile & G_TileToken_Ladder) {
           from_ladder = 1;
-          //should_move = 1;
         }
         if (dst_tile & G_TileToken_Ladder) {
           to_ladder = 1;
           should_move = 1;
-          // Can't jump up to a ladder from a tile below the ladder
-          if (!(ent_tile & G_TileToken_Ladder)) {
-            if (dy < 0) {
-              to_ladder = 0;
-              should_move = 0;
-            }
+          // Can't jump up to a ladder from a non-ladder tile below the ladder
+          if (!(ent_tile & G_TileToken_Ladder) && dy < 0) {
+            to_ladder = 0;
+            should_move = 0;
           }
         }
       }
@@ -798,7 +795,6 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
       S32 dst_idx = ent_idx + (dx + dy * map_width);
       
-      
       G_TileToken ent_tile = map->tokens[ent_idx];
       G_TileToken dst_tile = map->tokens[dst_idx];
       
@@ -973,11 +969,14 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
     if (gravity.landed_on_token == G_TileToken_Lava) {
-      g_entity_sink(player, level);
+      g_entity_sink(boulder, level);
     }
-    if (gravity.drop_count >= 1) {
-      should_crush = 1;
+    else {
+      if (gravity.drop_count >= 1) {
+        should_crush = 1;
+      }
     }
+    
     // Don't let the player move when a boulder is falling/crushing something;
     // if we do, they can dodge it by moving to an adjecent tile and "walk through"
     // a boulder falling next to them.
@@ -1052,17 +1051,16 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     g_undo_push(undo, map);
     
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
-    
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
-    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     
-    // Move to the mined tile if there is not an entity sitting on the mined tile.
+    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
+    // Move to the mined tile if there is not an entity sitting on the mined tile.
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
     if (!(a || b || c) && mine_result.mined) {
-      g_entity_move(player, level, dx, 0, tr);
+      g_entity_move(player, level, dx, dy, tr);
     }
   }
   
