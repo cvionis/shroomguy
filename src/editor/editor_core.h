@@ -31,6 +31,7 @@ function void ed_undo_release(ED_UndoContext *undo);
 function void ed_undo_clear(ED_UndoContext *undo);
 function void ed_undo_push(ED_UndoContext *undo, G_TileMap *map);
 function void ed_undo_pop(ED_UndoContext *undo, G_TileMap *map);
+
 //
 // Tile choice controls
 //
@@ -67,8 +68,8 @@ global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
   { S8("sprites/player.png"), G_TileToken_Player, G_Key_9 },
   { S8("sprites/enemy_ground.png"), G_TileToken_EnemyGround, G_Key_Q },
   { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_W },
-  { S8("sprites/null.png"), G_TileToken_Ladder, G_Key_E },
-  { S8("sprites/null.png"), G_TileToken_Resource, G_Key_R },
+  { S8("sprites/ladder.png"), G_TileToken_Ladder, G_Key_E },
+  { S8("sprites/resource.png"), G_TileToken_Resource, G_Key_R },
 };
 
 function void ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input);

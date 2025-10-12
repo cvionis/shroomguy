@@ -198,7 +198,7 @@ entry_point(void)
   
   {
     app.choice_ctrl.scale = 60;
-    app.choice_ctrl.base_x = 1000;
+    app.choice_ctrl.base_x = 916;
     app.choice_ctrl.base_y = 40;
     app.choice_ctrl.pad_x = 120;
     app.choice_ctrl.pad_y = 8;

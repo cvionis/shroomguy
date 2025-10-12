@@ -7,6 +7,7 @@
 #define G_TILEMAP_TOKENS_MAX 512
 #define G_LEVEL_ENEMIES_MAX 32
 #define G_LEVEL_BOULDERS_MAX 16
+#define G_LEVEL_RSRC_TILES_MAX 16
 #define G_AIR_ENEMY_HEALTH_MAX 1
 #define G_GROUND_ENEMY_HEALTH_MAX 2
 #define G_MINE_MAX 10
@@ -206,6 +207,9 @@ struct G_Level {
   
   U32 large_boulders_count;
   G_Entity large_boulders[G_LEVEL_BOULDERS_MAX];
+  
+  U32 rsrc_tiles_count;
+  G_Entity rsrc_tiles[G_LEVEL_RSRC_TILES_MAX];
 };
 
 struct G_LevelSimResult {
@@ -301,6 +305,7 @@ function U32 g_ground_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
 function U32 g_air_enemies_from_tilemap(G_Entity *enemies, G_TileMap *map);
 function U32 g_ore_count_from_tilemap(G_TileMap *map);
 function G_LevelBoulderInfo g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_TileMap *map);
+function U32 g_rsrc_tiles_from_tilemap(G_Entity *rsrc_tiles, G_TileMap *map);
 function G_Level g_level_from_tilemap(G_TileMap *map);
 
 // Mining state
@@ -322,6 +327,7 @@ function G_Entity *g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_large_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_ground_enemy_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_air_enemy_from_tilemap_idx(G_Level *level, U32 idx);
+function G_Entity *g_rsrc_tile_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
 function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);

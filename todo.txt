@@ -1,9 +1,22 @@
 // TODO
 
+* Implement ladders and resource tiles
+* Give each level its own max player resources
+* Don't lose when touching bottom-most tile in a level
+* Make small boulders crush enemies but not ores/blocks
+
+----
+
 Codebase:
 - Carry over new sound layer to _Home
 - Carry over cleaned up bae_string to _Home
 - MemorySet: count should really be size as it means count in bytes
+
+Runtime-tweakable constants:
+- Macro that registers a constant to a table, with filename and line no; returns 
+	current value in the table
+- Code that iterates thru the table every frame and seeks to tweak file positions,
+	updating value in table with new values
 
 Gameplay:
 - Touching bottom tile of level shouldn't kill you -- this is a flaw with lava logic.

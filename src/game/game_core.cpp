@@ -415,6 +415,34 @@ g_boulders_from_tilemap(G_Entity *small_boulders, G_Entity *large_boulders, G_Ti
   return result;
 }
 
+function U32
+g_rsrc_tiles_from_tilemap(G_Entity *rsrc_tiles, G_TileMap *map)
+{
+  G_TileToken *tokens = map->tokens;
+  U32 map_width = map->width;
+  U32 map_height = map->height;
+  U32 token_count = map_width * map_height;
+  
+  U32 rsrc_tiles_count = 0;
+  
+  for (U32 token_idx = 0; token_idx < token_count; token_idx += 1) {
+    F32 px = (F32)(token_idx % map_width);
+    F32 py = (F32)(token_idx / map_width);
+    
+    G_TileToken t = tokens[token_idx];
+    if (t & G_TileToken_Resource) {
+      G_Entity *ent = rsrc_tiles + rsrc_tiles_count;
+      MemoryZeroStruct(&ent->move);
+      ent->pos = v2f32(px, py);
+      ent->health = 1;
+      ent->tilemap_idx = token_idx;
+      rsrc_tiles_count += 1;
+    }
+  }
+  
+  return rsrc_tiles_count;
+}
+
 // @Todo: Is there a good reason we don't set the level's 'map' member in here?
 function G_Level
 g_level_from_tilemap(G_TileMap *map) 
@@ -425,6 +453,7 @@ g_level_from_tilemap(G_TileMap *map)
   level.player = g_player_from_tilemap(map);
   level.ground_enemies_count = g_ground_enemies_from_tilemap(level.ground_enemies, map);
   level.air_enemies_count = g_air_enemies_from_tilemap(level.air_enemies, map);
+  level.rsrc_tiles_count = g_rsrc_tiles_from_tilemap(level.rsrc_tiles, map);
   
   G_LevelBoulderInfo boulders = g_boulders_from_tilemap(level.small_boulders, level.large_boulders, map);
   level.small_boulders_count = boulders.small_count;
@@ -769,27 +798,30 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       }
       
       if (ent_tile & G_TileToken_Player) {
-        G_Entity *enemy = 0;
+        G_Entity *dst_ent = 0;
         if (dst_tile & G_TileToken_EnemyGround) {
-          enemy = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+          dst_ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+          mine->v = Max(0, mine->v - 1);
         }
-        if (dst_tile & G_TileToken_EnemyAir) {
-          enemy = g_air_enemy_from_tilemap_idx(level, dst_idx);
+        else if (dst_tile & G_TileToken_EnemyAir) {
+          dst_ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
+          mine->v = Max(0, mine->v - 1);
+        }
+        else if (dst_tile & G_TileToken_Resource) {
+          dst_ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
+          mine->v = Min(G_MINE_MAX, mine->v + 1);
         }
         
-        if (enemy) {
+        if (dst_ent) {
           if (mine->v > 0) {
-            enemy->health -= 1;
-            mine->v -= 1;
-            if (enemy->health <= 0) {
+            dst_ent->health -= 1;
+            if (dst_ent->health <= 0) {
               mined = 1;
               map->tokens[dst_idx] = G_TileToken_Empty;
             }
           }
         }
       }
-      
-      //mine->v = Max(mine->v, 0);
       
       result.mined = mined;
       result.dst_idx = dst_idx;
@@ -812,6 +844,8 @@ g_level_refresh_entities(G_Level *level)
   level->player = g_player_from_tilemap(map);
   level->ground_enemies_count = g_ground_enemies_from_tilemap(level->ground_enemies, map);
   level->air_enemies_count = g_air_enemies_from_tilemap(level->air_enemies, map);
+  level->rsrc_tiles_count = g_rsrc_tiles_from_tilemap(level->rsrc_tiles, map);
+  
   G_LevelBoulderInfo boulders = g_boulders_from_tilemap(level->small_boulders, level->large_boulders, map);
   level->small_boulders_count = boulders.small_count;
   level->large_boulders_count = boulders.large_count;
@@ -843,18 +877,9 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     g_undo_push(undo, map);
     
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
+    
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, 0, tr);
-    
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
-    G_TileToken dst_token = mine_result.dst_token;
-    
-    B32 dst_is_enemy = 0;
-    if (dst_token == G_TileToken_EnemyGround) {
-      dst_is_enemy = 1;
-    }
-    else if (dst_token == G_TileToken_EnemyAir) {
-      dst_is_enemy = 1;
-    }
     
     // Move to the mined tile if there is not an entity sitting on the mined tile.
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
@@ -872,6 +897,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
   }
   g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
+  // @Todo: FALSE! FIX THIS.
   // If the player is on the last row of the level, he's on lava, so he loses.
   B32 player_on_last_row = (player->pos.y >= level->map->height-1);
   if (player_on_last_row) {
@@ -981,6 +1007,17 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     }
   }
   
+  // Resource tiles
+  U32 rsrc_tiles_count = level->rsrc_tiles_count;
+  G_Entity *rsrc_tiles = level->rsrc_tiles;
+  for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
+    G_Entity *rsrc_tile = &rsrc_tiles[rsrc_tile_idx];
+    g_entity_apply_gravity(rsrc_tile, level);
+    
+    g_transition_v2f32_update(&rsrc_tile->move, &rsrc_tile->pos, delta_time);
+  }
+  
+  
   return result;
 }
 
@@ -1032,6 +1069,25 @@ g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx)
   
   for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
     G_Entity *ent = &small_boulders[boulder_idx];
+    if (ent->tilemap_idx == idx) {
+      result = ent;
+      break;
+    }
+  }
+  
+  return result;
+}
+
+function G_Entity *
+g_rsrc_tile_from_tilemap_idx(G_Level *level, U32 idx)
+{
+  G_Entity *result = 0;
+  
+  U32 rsrc_tiles_count = level->rsrc_tiles_count;
+  G_Entity *rsrc_tiles = level->rsrc_tiles;
+  
+  for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
+    G_Entity *ent = &rsrc_tiles[rsrc_tile_idx];
     if (ent->tilemap_idx == idx) {
       result = ent;
       break;
@@ -1156,6 +1212,9 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
       case G_TileToken_OreT2: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
       }break;
+      case G_TileToken_Ladder: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
+      }break;
       case G_TileToken_Bedrock: {
         sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
       }break;
@@ -1244,6 +1303,23 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       F32 scaled_spr_x = scale * boulder->pos.x;
       F32 scaled_spr_y = scale * boulder->pos.y;
       g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+    }
+  }
+  
+  // Resource tiles
+  {
+    G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/resource.png"));
+    
+    U32 rsrc_tiles_count = level->rsrc_tiles_count;
+    G_Entity *rsrc_tiles = level->rsrc_tiles;
+    
+    for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
+      G_Entity *rsrc_tile = &rsrc_tiles[rsrc_tile_idx];
+      if (rsrc_tile->health > 0) {
+        F32 scaled_spr_x = scale * rsrc_tile->pos.x;
+        F32 scaled_spr_y = scale * rsrc_tile->pos.y;
+        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+      }
     }
   }
   

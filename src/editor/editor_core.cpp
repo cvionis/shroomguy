@@ -776,6 +776,12 @@ ed_map_ctrl_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *ma
       case G_TileToken_Lava: {
         sprite = g_assets_get_sprite(assets, S8("sprites/lava.png"));
       }break;
+      case G_TileToken_Ladder: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
+      }break;
+      case G_TileToken_Resource: {
+        sprite = g_assets_get_sprite(assets, S8("sprites/resource.png"));
+      }break;
     }
     
     V4F32 col = v4f32(1,1,1,1);
