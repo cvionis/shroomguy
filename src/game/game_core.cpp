@@ -511,7 +511,7 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       if (ent_tile & G_TileToken_Player) {
         if (ent_tile & G_TileToken_Ladder) {
           from_ladder = 1;
-          should_move = 1;
+          //should_move = 1;
         }
         if (dst_tile & G_TileToken_Ladder) {
           to_ladder = 1;
@@ -606,15 +606,16 @@ g_entity_crush(G_Entity *entity, G_Level *level)
         G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
         ent->health = 0;
       }break;
-      case G_TileToken_Player: {
-        level->player.health = 0;
-      }break;
       case G_TileToken_BoulderSmall: {
         can_crush = 0;
       }break;
       case G_TileToken_BoulderLarge: {
         can_crush = 0;
       }break;
+    }
+    
+    if (dst_tile & G_TileToken_Player) {
+      level->player.health = 0;
     }
     
     if (can_crush) {
@@ -1005,7 +1006,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       (crushed & G_TileToken_OreT1) || 
       (crushed & G_TileToken_OreT0);
       if (crushed_ore) {
-        mine->v -= 1;
         mine->ore_collected += 1;
       }
       should_crush = 0;
@@ -1042,8 +1042,10 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       
       B32 enemy_on_player = absf32(player->pos.y - enemy->pos.y) <= 1.05;
       if ((gravity.landed_on_token & G_TileToken_Player) && enemy_on_player) {
-        result.lost = 1;
-        break;
+        if (!(gravity.landed_on_token & G_TileToken_Ladder)) {
+          result.lost = 1;
+          break;
+        }
       }
     }
   }
