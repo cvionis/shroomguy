@@ -928,18 +928,22 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     }
   }
   
+  static B32 landed_on_lava = 0;
   G_EntityGravityResult gravity = g_entity_apply_gravity(player, level);
   if (gravity.landed_on_token == G_TileToken_Lava) {
     g_entity_sink(player, level);
+    landed_on_lava = 1;
   }
-  g_transition_v2f32_update(&player->move, &player->pos, delta_time);
+  B32 landed_on_lava_done = g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
-  // @Todo: FALSE! FIX THIS.
-  // If the player is on the last row of the level, he's on lava, so he loses.
-  B32 player_on_last_row = (player->pos.y >= level->map->height-1);
-  if (player_on_last_row) {
-    player->health = 0;
-    result.lost = 1;
+  // Death by lava! AAAA!
+  if (landed_on_lava && landed_on_lava_done) {
+    B32 player_on_last_row = (player->pos.y >= level->map->height-1);
+    if (player_on_last_row) {
+      player->health = 0;
+      result.lost = 1;
+      landed_on_lava = 0;
+    }
   }
   
   U32 player_tile_idx = player->tilemap_idx;
