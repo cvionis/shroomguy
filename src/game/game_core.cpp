@@ -603,6 +603,14 @@ g_entity_crush(G_Entity *entity, G_Level *level)
         G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
         ent->health = 0;
       }break;
+      case G_TileToken_EnemyAir: {
+        G_Entity *ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
+        ent->health = 0;
+      }break;
+      case G_TileToken_Resource: {
+        G_Entity *ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
+        ent->health = 0;
+      }break;
       case G_TileToken_BoulderSmall: {
         can_crush = 0;
       }break;
@@ -1055,11 +1063,13 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     
     G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
+    
     // Move to the mined tile if there is not an entity sitting on the mined tile.
     G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
     G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    if (!(a || b || c) && mine_result.mined) {
+    G_Entity *d = g_rsrc_tile_from_tilemap_idx(level, above_mined_tile_idx);
+    if (!(a || b || c || d) && mine_result.mined) {
       g_entity_move(player, level, dx, dy, tr);
     }
   }
