@@ -554,8 +554,8 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
             map->tokens[ent_idx] = src_tile;
             map->tokens[dst_idx] = ent_tile;
           }
-          entity->tilemap_idx = dst_idx;
         }
+        entity->tilemap_idx = dst_idx;
       }
       
       result.moved = should_move; 
@@ -1054,7 +1054,20 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     g_transition_v2f32_update(&rsrc_tile->move, &rsrc_tile->pos, delta_time);
   }
   
+  //
   // Player
+  //
+  
+  // Ladder placement
+  if (g_key_pressed(input, G_Key_Space)) {
+    G_TileToken *tile_at_player = &level->map->tokens[player->tilemap_idx];
+    if (!(*tile_at_player & G_TileToken_Ladder)) {
+      g_undo_push(undo, map);
+      *tile_at_player = (G_TileToken)((U32)*tile_at_player | (U32)G_TileToken_Ladder);
+      mine->v -= 1;
+    }
+  }
+  // Moving/mining/attacking
   if (dx || dy) {
     g_undo_push(undo, map);
     
