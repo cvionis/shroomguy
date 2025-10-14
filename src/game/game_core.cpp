@@ -777,12 +777,13 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
 }
 
 function G_EntityMineResult
-g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy)
+g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, G_ResourceContext *rsrc, S32 dx, S32 dy)
 {
   G_EntityMineResult result = {0};
   
   B32 entity_moving = entity->move.active;
-  B32 entity_can_mine = mine->v != 0;
+  //B32 entity_can_mine = mine->v != 0;
+  B32 entity_can_mine = g_rsrc_get_rsrc_count(rsrc) != 0;
   
   if (!entity_moving && entity_can_mine) {
     G_TileMap *map = level->map;
@@ -808,34 +809,42 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
       
       B32 mined = 0;
       
+      // @Todo: Redunancy
+      
       if (dst_tile & G_TileToken_Dirt) {
         map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->v -= 1;
+        g_rsrc_change(rsrc, -1, 0);
+        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
+        g_rsrc_change(rsrc, -1, 0);
+        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
-        mine->v -= 1;
+        g_rsrc_change(rsrc, -1, 0);
+        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT2) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
+        g_rsrc_change(rsrc, -1, 0);
+        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
-        mine->v -= 1;
+        g_rsrc_change(rsrc, -1, 0);
+        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
-        g_mine_collect(mine);
+        g_rsrc_change(rsrc, -1, 1);
+        //g_mine_collect(mine);
         mined = 1;
       }
       
@@ -843,15 +852,18 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 d
         G_Entity *dst_ent = 0;
         if (dst_tile & G_TileToken_EnemyGround) {
           dst_ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
-          mine->v = Max(0, mine->v - 1);
+          g_rsrc_change(rsrc, -1, 0);
+          //mine->v = Max(0, mine->v - 1);
         }
         else if (dst_tile & G_TileToken_EnemyAir) {
           dst_ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
-          mine->v = Max(0, mine->v - 1);
+          g_rsrc_change(rsrc, -1, 0);
+          //mine->v = Max(0, mine->v - 1);
         }
         else if (dst_tile & G_TileToken_Resource) {
           dst_ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
-          mine->v = Min(G_MINE_MAX, mine->v + 1);
+          g_rsrc_change(rsrc, 1, 0);
+          //mine->v = Min(G_MINE_MAX, mine->v + 1);
         }
         
         if (dst_ent) {
@@ -894,7 +906,7 @@ g_level_refresh_entities(G_Level *level)
 }
 
 function G_LevelSimResult
-g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time)
+g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_ResourceContext *rsrc, G_MineState *mine, F32 delta_time)
 {
   G_LevelSimResult result = {0};
   
@@ -1000,7 +1012,8 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
       (crushed & G_TileToken_OreT1) || 
       (crushed & G_TileToken_OreT0);
       if (crushed_ore) {
-        mine->ore_collected += 1;
+        //mine->ore_collected += 1;
+        g_rsrc_change(rsrc, 0, 1);
       }
       should_crush = 0;
     }
@@ -1064,7 +1077,8 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     if (!(*tile_at_player & G_TileToken_Ladder)) {
       g_undo_push(undo, map);
       *tile_at_player = (G_TileToken)((U32)*tile_at_player | (U32)G_TileToken_Ladder);
-      mine->v -= 1;
+      //mine->v -= 1;
+      g_rsrc_change(rsrc, -1, 0);
     }
   }
   // Moving/mining/attacking
@@ -1074,7 +1088,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineStat
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
     
-    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, dx, dy);
+    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, rsrc, dx, dy);
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     
     // Move to the mined tile if there is not an entity sitting on the mined tile.

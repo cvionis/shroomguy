@@ -27,6 +27,7 @@ struct GameState {
   G_Level level;
   G_Input input;
   G_MineState mine;
+  G_ResourceContext rsrc;
   
   M_Context *mixer;
   M_Sound *sound;
@@ -95,7 +96,8 @@ update(void)
     g_undo_pop(&game.undo, map);
     
     g_level_refresh_entities(&game.level);
-    g_mine_decollect(&game.mine);
+    g_rsrc_revert(&game.rsrc);
+    //g_mine_decollect(&game.mine);
     
     game.lost = 0;
   }
@@ -104,13 +106,13 @@ update(void)
     g_undo_restart(&game.undo, map);
     
     g_level_refresh_entities(&game.level);
-    g_mine_reset(&game.mine);
+    g_rsrc_init(&game.rsrc, game.rsrc.rsrc_max, game.rsrc.ores_max);
     
     game.lost = 0;
   }
   
   if (!game.lost) {
-    G_LevelSimResult sim = g_simulate_level(&game.level, &game.undo, &game.input, &game.mine, delta_time);
+    G_LevelSimResult sim = g_simulate_level(&game.level, &game.undo, &game.input, &game.rsrc, &game.mine, delta_time);
     if (sim.lost) {
       game.lost = 1;
     }
@@ -160,7 +162,8 @@ render(void)
     
     {
       R_Quad quad = {0};
-      F32 w = picaxe_bar_w * ((F32)game.mine.v/(F32)game.mine.max);
+      //F32 w = picaxe_bar_w * ((F32)game.mine.v/(F32)game.mine.max);
+      F32 w = picaxe_bar_w * ((F32)g_rsrc_get_rsrc_count(&game.rsrc)/(F32)game.rsrc.rsrc_max);
       quad.rect = rect_f32(picaxe_bar_x, picaxe_bar_y, picaxe_bar_x+w, picaxe_bar_y+picaxe_bar_h);
       quad.colors[0] = col;
       quad.colors[1] = col;
@@ -176,7 +179,8 @@ render(void)
       
       r_text(renderer, S8("Picaxe: "), game.font, 32, v2f32(picaxe_bar_x,0), col, 0);
       
-      U32 ore_collected = game.mine.ore_collected;
+      //U32 ore_collected = game.mine.ore_collected;
+      U32 ore_collected = g_rsrc_get_ores_count(&game.rsrc);
       U32 ore_count = game.level.ore_count;
       
       String8 ore_progress_str = str8_pushf(tmp.arena, "Ores: %d/%d", ore_collected, ore_count);
@@ -233,8 +237,14 @@ entry_point(void)
   }
   
   game.undo = g_undo_make();
+  
   game.mine = g_mine_make(G_MINE_MAX);
   
+  {
+    game.rsrc = g_rsrc_make();
+    // @Todo: Do this every time a new level is loaded using its maps' unique max values
+    g_rsrc_init(&game.rsrc, 6, 1);
+  }
   while (!game.quit) {
     update();
     render();

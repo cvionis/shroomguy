@@ -257,7 +257,7 @@ struct G_MineState {
 //
 
 struct G_ResourceSnapshot {
-  G_ResourceSnapshot *list_next;
+  G_ResourceSnapshot *stack_next;
   G_ResourceSnapshot *free_next;
   
 	S32 rsrc_count;
@@ -269,7 +269,6 @@ struct G_ResourceContext {
   
 	// All the following are reset when new level is loaded
 	G_ResourceSnapshot *snapshots_first;
-	G_ResourceSnapshot *snapshots_last;
 	G_ResourceSnapshot *snapshots_free;
   
 	S32 rsrc_max;
@@ -277,7 +276,7 @@ struct G_ResourceContext {
 };
 
 function G_ResourceContext 
-g_rsrc_ctx_make(void)
+g_rsrc_make(void)
 {
   G_ResourceContext result = {0};
   result.arena = arena_alloc_default();
@@ -288,8 +287,8 @@ function void
 g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
 {
   // Remove current snapshots
-  for (G_ResourceSnapshot *n = ctx->snapshots_first; n != 0; n = n->list_next) {
-    SLLQueuePopN(ctx->snapshots_first, ctx->snapshots_last, list_next);
+  for (G_ResourceSnapshot *n = ctx->snapshots_first; n != 0; n = n->stack_next) {
+    SLLStackPopN(ctx->snapshots_first, stack_next);
     SLLStackPushN(ctx->snapshots_free, n, free_next);
   }
   
@@ -301,11 +300,37 @@ g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
   }
   n->rsrc_count = rsrc_max;
   n->ores_count = 0;
-  SLLQueuePushN(ctx->snapshots_first, ctx->snapshots_last, n, list_next);
+  SLLStackPushN(ctx->snapshots_first, n, stack_next);
   
   // Set the max values
   ctx->rsrc_max = rsrc_max;
   ctx->ores_max = ores_max;
+}
+
+function S32 
+g_rsrc_get_rsrc_count(G_ResourceContext *ctx)
+{
+  S32 result = 0;
+  
+  G_ResourceSnapshot *n = ctx->snapshots_first;
+  if (n) {
+    result = n->rsrc_count;
+  }
+  
+  return result;
+}
+
+function S32 
+g_rsrc_get_ores_count(G_ResourceContext *ctx)
+{
+  S32 result = 0;
+  
+  G_ResourceSnapshot *n = ctx->snapshots_first;
+  if (n) {
+    result = n->ores_count;
+  }
+  
+  return result;
 }
 
 function void 
@@ -320,19 +345,19 @@ g_rsrc_change(G_ResourceContext *ctx, S32 rsrc, S32 ores)
   }
   n->rsrc_count = latest->rsrc_count + rsrc;
   n->ores_count = latest->ores_count + ores;
-  SLLQueuePushN(ctx->snapshots_first, ctx->snapshots_last, n, list_next);
+  SLLStackPushN(ctx->snapshots_first, n, stack_next);
 }
 
 function void 
 g_rsrc_revert(G_ResourceContext *ctx)
 {
   G_ResourceSnapshot *latest = ctx->snapshots_first;
-  SLLQueuePopN(ctx->snapshots_first, ctx->snapshots_last, list_next);
+  SLLStackPopN(ctx->snapshots_first, stack_next);
   SLLStackPushN(ctx->snapshots_free, latest, free_next);
 }
 
 function void 
-g_rsrc_ctx_release(G_ResourceContext *ctx)
+g_rsrc_release(G_ResourceContext *ctx)
 {
   arena_release(ctx->arena);
   MemoryZeroStruct(ctx);
@@ -403,12 +428,12 @@ function void g_mine_reset(G_MineState *mine);
 // Entities
 function G_EntityMoveResult g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTransition move_transition);
 // @Todo: Rename to reflect that it can be used to mine or attack.
-function G_EntityMineResult g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, S32 dx, S32 dy);
+function G_EntityMineResult g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, G_ResourceContext *rsrc, S32 dx, S32 dy);
 function G_EntityCrushResult g_entity_crush(G_Entity *entity, G_Level *level);
 function G_EntityGravityResult g_entity_apply_gravity(G_Entity *entity, G_Level *level);
 
 // Levels
-function G_LevelSimResult g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_MineState *mine, F32 delta_time);
+function G_LevelSimResult g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_ResourceContext *rsrc, G_MineState *mine, F32 delta_time);
 function G_Entity *g_small_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_large_boulder_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_ground_enemy_from_tilemap_idx(G_Level *level, U32 idx);
