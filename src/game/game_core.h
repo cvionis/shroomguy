@@ -252,6 +252,92 @@ struct G_MineState {
   S32 ore_collected;
 };
 
+//
+// Resource context
+//
+
+struct G_ResourceSnapshot {
+  G_ResourceSnapshot *list_next;
+  G_ResourceSnapshot *free_next;
+  
+	S32 rsrc_count;
+	S32 ores_count;
+};
+
+struct G_ResourceContext {
+	Arena *arena;
+  
+	// All the following are reset when new level is loaded
+	G_ResourceSnapshot *snapshots_first;
+	G_ResourceSnapshot *snapshots_last;
+	G_ResourceSnapshot *snapshots_free;
+  
+	S32 rsrc_max;
+	S32 ores_max;
+};
+
+function G_ResourceContext 
+g_rsrc_ctx_make(void)
+{
+  G_ResourceContext result = {0};
+  result.arena = arena_alloc_default();
+  return result;
+}
+
+function void 
+g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
+{
+  // Remove current snapshots
+  for (G_ResourceSnapshot *n = ctx->snapshots_first; n != 0; n = n->list_next) {
+    SLLQueuePopN(ctx->snapshots_first, ctx->snapshots_last, list_next);
+    SLLStackPushN(ctx->snapshots_free, n, free_next);
+  }
+  
+  // Create an initial snapshot
+  G_ResourceSnapshot *n = ctx->snapshots_free;
+  SLLStackPopN(ctx->snapshots_free, free_next);
+  if (!n) {
+    n = ArenaPushStruct(ctx->arena, G_ResourceSnapshot);
+  }
+  n->rsrc_count = rsrc_max;
+  n->ores_count = 0;
+  SLLQueuePushN(ctx->snapshots_first, ctx->snapshots_last, n, list_next);
+  
+  // Set the max values
+  ctx->rsrc_max = rsrc_max;
+  ctx->ores_max = ores_max;
+}
+
+function void 
+g_rsrc_change(G_ResourceContext *ctx, S32 rsrc, S32 ores)
+{
+  G_ResourceSnapshot *latest = ctx->snapshots_first;
+  
+  G_ResourceSnapshot *n = ctx->snapshots_free;
+  SLLStackPopN(ctx->snapshots_free, free_next);
+  if (!n) {
+    n = ArenaPushStruct(ctx->arena, G_ResourceSnapshot);
+  }
+  n->rsrc_count = latest->rsrc_count + rsrc;
+  n->ores_count = latest->ores_count + ores;
+  SLLQueuePushN(ctx->snapshots_first, ctx->snapshots_last, n, list_next);
+}
+
+function void 
+g_rsrc_revert(G_ResourceContext *ctx)
+{
+  G_ResourceSnapshot *latest = ctx->snapshots_first;
+  SLLQueuePopN(ctx->snapshots_first, ctx->snapshots_last, list_next);
+  SLLStackPushN(ctx->snapshots_free, latest, free_next);
+}
+
+function void 
+g_rsrc_ctx_release(G_ResourceContext *ctx)
+{
+  arena_release(ctx->arena);
+  MemoryZeroStruct(ctx);
+}
+
 // 
 // Map storage and serialization
 //
