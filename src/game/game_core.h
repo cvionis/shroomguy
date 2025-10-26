@@ -236,42 +236,6 @@ struct G_ResourceContext {
   S32 ores_max;
 };
 
-function void
-g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
-{
-  ctx->rsrc_max = rsrc_max;
-  ctx->state.rsrc_count = rsrc_max;
-  
-  ctx->ores_max = ores_max;
-  ctx->state.ores_count = ores_max;
-}
-
-function S32
-g_rsrc_get_rsrc_count(G_ResourceContext *ctx)
-{
-  return ctx->state.rsrc_count;
-}
-
-function S32
-g_rsrc_get_ores_count(G_ResourceContext *ctx)
-{
-  return ctx->state.ores_count;
-}
-
-function void
-g_rsrc_change(G_ResourceContext *ctx, S32 rsrc_delta, S32 ores_delta)
-{
-  S32 rsrc_count = ctx->state.rsrc_count;
-  rsrc_count += rsrc_delta;
-  rsrc_count = Clamp(rsrc_count, 0, ctx->rsrc_max);
-  ctx->state.rsrc_count = rsrc_count;
-  
-  S32 ores_count = ctx->state.ores_count;
-  ores_count += ores_delta;
-  ores_count = Clamp(ores_count, 0, ctx->ores_max);
-  ctx->state.ores_count = ores_count;
-}
-
 //
 // Undo System
 //
@@ -332,6 +296,12 @@ function void g_transition_f32_start(G_TransitionF32 *tr, F32 src, F32 dst, F32 
 function B32 g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time);
 function void g_transition_v2f32_start(G_TransitionV2F32 *tr, V2F32 src, V2F32 dst, F32 speed, G_TransitionCurve curve);
 function B32 g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time);
+
+// Resources
+function void g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max);
+function S32 g_rsrc_get_rsrc_count(G_ResourceContext *ctx);
+function S32 g_rsrc_get_ores_count(G_ResourceContext *ctx);
+function void g_rsrc_change(G_ResourceContext *ctx, S32 rsrc_delta, S32 ores_delta);
 
 // Undo System
 function G_UndoContext g_undo_make(void);

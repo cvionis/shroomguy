@@ -51,7 +51,7 @@ update(void)
   g_get_input(window, &game.input, events);
   
   {
-    // Swap current map 
+    // DEBUG: Swap current map 
     S32 new_map_idx = game.current_map_idx;
     
     if (g_key_pressed(&game.input, G_Key_F2)) {

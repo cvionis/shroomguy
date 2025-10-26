@@ -1,13 +1,5 @@
 // TODO
 
-@Resume (resource system):
-[ ] Enforce limits of [0, max] when incrementing/decrementing rsrc count and ores count
-[ ] Fix behavior when reverting state on initial resource state
-[ ] Remove all uses of old mine state system
-
-[ ] Implement a basic undo system for mining so that undoing after collecting resource
-		tile works, and so placing ladders can take up 2 resource units. 
-
 [ ] When an entitiy sinks into lava, it should not be able to interact with the 
 		player when the player sits on that lava tile; the player should *always* just
 		sink and lose when landing on a lava tile.

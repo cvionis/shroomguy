@@ -190,6 +190,46 @@ g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time)
 }
 
 //
+// Resources
+//
+
+function void
+g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
+{
+  ctx->rsrc_max = rsrc_max;
+  ctx->state.rsrc_count = rsrc_max;
+  
+  ctx->ores_max = ores_max;
+  ctx->state.ores_count = ores_max;
+}
+
+function S32
+g_rsrc_get_rsrc_count(G_ResourceContext *ctx)
+{
+  return ctx->state.rsrc_count;
+}
+
+function S32
+g_rsrc_get_ores_count(G_ResourceContext *ctx)
+{
+  return ctx->state.ores_count;
+}
+
+function void
+g_rsrc_change(G_ResourceContext *ctx, S32 rsrc_delta, S32 ores_delta)
+{
+  S32 rsrc_count = ctx->state.rsrc_count;
+  rsrc_count += rsrc_delta;
+  rsrc_count = Clamp(rsrc_count, 0, ctx->rsrc_max);
+  ctx->state.rsrc_count = rsrc_count;
+  
+  S32 ores_count = ctx->state.ores_count;
+  ores_count += ores_delta;
+  ores_count = Clamp(ores_count, 0, ctx->ores_max);
+  ctx->state.ores_count = ores_count;
+}
+
+//
 // Undo System
 //
 
@@ -675,7 +715,7 @@ g_entity_sink(G_Entity *entity, G_Level *level)
       for (;;) {
         dst_idx += map_width;
         dst_tile = map->tokens[dst_idx];
-        if (dst_tile != G_TileToken_Lava) {
+        if (!(dst_tile & G_TileToken_Lava)) {
           break;
         }
         drop_count += 1;
@@ -694,7 +734,6 @@ g_entity_sink(G_Entity *entity, G_Level *level)
       G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
       
       if (drop_count > 0) {
-        // @Todo: Should entity health be set to 0 when sinking?
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                  tr_speed, tr_curve);
         
@@ -921,7 +960,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   
   static B32 landed_on_lava = 0;
   G_EntityGravityResult gravity = g_entity_apply_gravity(player, level);
-  if (gravity.landed_on_token == G_TileToken_Lava) {
+  if (gravity.landed_on_token & G_TileToken_Lava) {
     g_entity_sink(player, level);
     landed_on_lava = 1;
   }
