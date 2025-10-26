@@ -1,9 +1,31 @@
 // TODO
 
-[ ] Make large boulder crushing logic on enemies similar to player-crushing logic
+@Resume (resource system):
+[ ] Enforce limits of [0, max] when incrementing/decrementing rsrc count and ores count
+[ ] Fix behavior when reverting state on initial resource state
+[ ] Remove all uses of old mine state system
+
+[ ] Implement a basic undo system for mining so that undoing after collecting resource
+		tile works, and so placing ladders can take up 2 resource units. 
+
+[ ] When an entitiy sinks into lava, it should not be able to interact with the 
+		player when the player sits on that lava tile; the player should *always* just
+		sink and lose when landing on a lava tile.
+
+[ ] Make large boulder crushing logic on all entities similar to player-crushing logic
 		so it executes better visually
-[ ] Make small boulders crush enemies and resource tiles but not ores/blocks
+		- give each large boulder entity a "crush_target" member
+		- in g_entity_crush, just set the crush target.
+		- when iterating over all the large boulders, check its move transition status;
+			if its done (the boulder has visually covered the crushed target) and the
+			boulder has a crush target, do the necessary tilemap work.
 [ ] Give each level its own max player resources
+[ ] Falling position transitions should be a constant speed, and not speed up 
+		when fallen distance is larger -- this can be accomplished by giving transitions
+		a transition speed rather than a transition time/duration.
+
+* "Picaxe" -> energy/resources (shrews can just mine  with hands/nose; replenished by eating
+	resource tiles' mushrooms.
 
 ----
 

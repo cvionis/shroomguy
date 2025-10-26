@@ -218,7 +218,7 @@ g_undo_clear(G_UndoContext *undo)
 }
 
 function void 
-g_undo_push(G_UndoContext *undo, G_TileMap *map)
+g_undo_push(G_UndoContext *undo, G_TileMap *map, G_ResourceState *rsrc)
 {
   G_UndoNode *n = undo->free;
   SLLStackPopN(undo->free, free_next);
@@ -228,19 +228,21 @@ g_undo_push(G_UndoContext *undo, G_TileMap *map)
   
   U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
   MemoryCopy(n->tokens, map->tokens, tiles_size);
+  MemoryCopyStruct(&n->rsrc, rsrc);
   
   SLLQueuePushFrontN(undo->first, undo->last, n, stack_next);
   undo->count += 1;
 }
 
 function void
-g_undo_pop(G_UndoContext *undo, G_TileMap *map)
+g_undo_pop(G_UndoContext *undo, G_TileMap *map, G_ResourceState *rsrc)
 {
   G_UndoNode *n = undo->first;
   if (n) {
     if (map) {
       U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
       MemoryCopy(map->tokens, n->tokens, tiles_size);
+      MemoryCopyStruct(rsrc, &n->rsrc);
       
       SLLQueuePopN(undo->first, undo->last, stack_next);
       SLLStackPushN(undo->free, n, free_next);
@@ -250,13 +252,14 @@ g_undo_pop(G_UndoContext *undo, G_TileMap *map)
 }
 
 function void
-g_undo_restart(G_UndoContext *undo, G_TileMap *map)
+g_undo_restart(G_UndoContext *undo, G_TileMap *map, G_ResourceState *rsrc)
 {
   G_UndoNode *n = undo->last;
   if (n) {
     if (map) {
       U32 tiles_size = map->width * map->height * sizeof(G_TileToken);
       MemoryCopy(map->tokens, n->tokens, tiles_size);
+      MemoryCopyStruct(rsrc, &n->rsrc);
       
       undo->count = 0;
     }
@@ -777,12 +780,11 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
 }
 
 function G_EntityMineResult
-g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, G_ResourceContext *rsrc, S32 dx, S32 dy)
+g_entity_mine(G_Entity *entity, G_Level *level, G_ResourceContext *rsrc, S32 dx, S32 dy)
 {
   G_EntityMineResult result = {0};
   
   B32 entity_moving = entity->move.active;
-  //B32 entity_can_mine = mine->v != 0;
   B32 entity_can_mine = g_rsrc_get_rsrc_count(rsrc) != 0;
   
   if (!entity_moving && entity_can_mine) {
@@ -814,37 +816,31 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, G_ResourceCon
       if (dst_tile & G_TileToken_Dirt) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         g_rsrc_change(rsrc, -1, 0);
-        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         g_rsrc_change(rsrc, -1, 0);
-        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_StoneT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         g_rsrc_change(rsrc, -1, 0);
-        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT2) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         g_rsrc_change(rsrc, -1, 0);
-        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT1) {
         map->tokens[dst_idx] = (G_TileToken)((U32)map->tokens[dst_idx] >> 1);
         g_rsrc_change(rsrc, -1, 0);
-        //mine->v -= 1;
         mined = 1;
       }
       else if (dst_tile & G_TileToken_OreT0) {
         map->tokens[dst_idx] = G_TileToken_Empty;
         g_rsrc_change(rsrc, -1, 1);
-        //g_mine_collect(mine);
         mined = 1;
       }
       
@@ -853,21 +849,18 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_MineState *mine, G_ResourceCon
         if (dst_tile & G_TileToken_EnemyGround) {
           dst_ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
           g_rsrc_change(rsrc, -1, 0);
-          //mine->v = Max(0, mine->v - 1);
         }
         else if (dst_tile & G_TileToken_EnemyAir) {
           dst_ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
           g_rsrc_change(rsrc, -1, 0);
-          //mine->v = Max(0, mine->v - 1);
         }
         else if (dst_tile & G_TileToken_Resource) {
           dst_ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
           g_rsrc_change(rsrc, 1, 0);
-          //mine->v = Min(G_MINE_MAX, mine->v + 1);
         }
         
         if (dst_ent) {
-          if (mine->v > 0) {
+          if (g_rsrc_get_rsrc_count(rsrc) > 0) {
             dst_ent->health -= 1;
             if (dst_ent->health <= 0) {
               mined = 1;
@@ -906,7 +899,7 @@ g_level_refresh_entities(G_Level *level)
 }
 
 function G_LevelSimResult
-g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_ResourceContext *rsrc, G_MineState *mine, F32 delta_time)
+g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_ResourceContext *rsrc, F32 delta_time)
 {
   G_LevelSimResult result = {0};
   
@@ -1012,7 +1005,6 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
       (crushed & G_TileToken_OreT1) || 
       (crushed & G_TileToken_OreT0);
       if (crushed_ore) {
-        //mine->ore_collected += 1;
         g_rsrc_change(rsrc, 0, 1);
       }
       should_crush = 0;
@@ -1075,20 +1067,19 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   if (g_key_pressed(input, G_Key_Space)) {
     G_TileToken *tile_at_player = &level->map->tokens[player->tilemap_idx];
     if (!(*tile_at_player & G_TileToken_Ladder)) {
-      g_undo_push(undo, map);
+      g_undo_push(undo, map, &rsrc->state);
       *tile_at_player = (G_TileToken)((U32)*tile_at_player | (U32)G_TileToken_Ladder);
-      //mine->v -= 1;
       g_rsrc_change(rsrc, -1, 0);
     }
   }
   // Moving/mining/attacking
   if (dx || dy) {
-    g_undo_push(undo, map);
+    g_undo_push(undo, map, &rsrc->state);
     
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
     
-    G_EntityMineResult mine_result = g_entity_mine(player, level, mine, rsrc, dx, dy);
+    G_EntityMineResult mine_result = g_entity_mine(player, level, rsrc, dx, dy);
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
     
     // Move to the mined tile if there is not an entity sitting on the mined tile.
@@ -1513,40 +1504,4 @@ g_maps_get_copy(G_MapStorage *maps, U32 map_idx)
     MemoryCopy(&result, &maps->maps[map_idx], sizeof(G_TileMap));
   }
   return result;
-}
-
-//
-// Mining state
-//
-
-function G_MineState
-g_mine_make(S32 max)
-{
-  G_MineState result = {0};
-  result.max = max;
-  result.v = max;
-  return result;
-}
-
-function void 
-g_mine_decollect(G_MineState *mine) 
-{
-  mine->v += 1;
-  mine->v = Min(mine->v, mine->max);
-  mine->ore_collected -= 1;
-  mine->ore_collected = Max(mine->ore_collected, 0);
-}
-
-function void
-g_mine_collect(G_MineState *mine)
-{
-  mine->ore_collected += 1;
-  mine->v -= 1;
-}
-
-function void
-g_mine_reset(G_MineState *mine)
-{
-  mine->v = mine->max;
-  mine->ore_collected = 0;
 }
