@@ -2,6 +2,24 @@
 // Input
 //
 
+struct G_CrushTarget {
+  G_Entity *entity;
+  U32 ent_idx;
+  U32 dst_idx;
+  G_TileToken src_tile;
+  G_TileToken ent_tile;
+  G_TileToken dst_tile;
+};
+
+#if 0
+struct G_CrushState {
+  B32 should_crush;
+  G_CrushTarget target;
+};
+#endif
+
+global G_CrushTarget g_target = {};
+
 function void
 g_get_input(OS_Handle window, G_Input *input, OS_EventList *events)
 {
@@ -640,30 +658,32 @@ g_entity_crush(G_Entity *entity, G_Level *level)
     G_TileToken ent_tile = map->tokens[ent_idx];
     
     B32 can_crush = 1;
-    
-    switch (dst_tile) {
-      case G_TileToken_EnemyGround: {
-        G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
-        ent->health = 0;
-      }break;
-      case G_TileToken_EnemyAir: {
-        G_Entity *ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
-        ent->health = 0;
-      }break;
-      case G_TileToken_Resource: {
-        G_Entity *ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
-        ent->health = 0;
-      }break;
-      case G_TileToken_BoulderSmall: {
-        can_crush = 0;
-      }break;
-      case G_TileToken_BoulderLarge: {
-        can_crush = 0;
-      }break;
-    }
+    G_Entity *crushed_entity = 0;
     
     if (dst_tile & G_TileToken_Player) {
-      level->player.health = 0;
+      crushed_entity = &level->player;
+      //level->player.health = 0;
+    }
+    else if (dst_tile & G_TileToken_EnemyGround) {
+      G_Entity *ent = g_ground_enemy_from_tilemap_idx(level, dst_idx);
+      crushed_entity = ent;
+      //ent->health = 0;
+    }
+    else if (dst_tile & G_TileToken_EnemyAir) {
+      G_Entity *ent = g_air_enemy_from_tilemap_idx(level, dst_idx);
+      crushed_entity = ent;
+      //ent->health = 0;
+    }
+    else if (dst_tile & G_TileToken_Resource) {
+      G_Entity *ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
+      crushed_entity = ent;
+      //ent->health = 0;
+    }
+    else if (dst_tile & G_TileToken_BoulderSmall) {
+      can_crush = 0;
+    }
+    else if (dst_tile & G_TileToken_BoulderLarge) {
+      can_crush = 0;
     }
     
     if (can_crush) {
@@ -671,9 +691,18 @@ g_entity_crush(G_Entity *entity, G_Level *level)
       G_TransitionCurve tr_curve = G_TransitionCurve_QuinticEaseInOut;
       g_transition_v2f32_start(&entity->move, ent_pos, dst_pos, 
                                tr_speed, tr_curve);
-      map->tokens[ent_idx] = src_tile;
-      map->tokens[dst_idx] = ent_tile;
-      entity->tilemap_idx = dst_idx;
+      
+      // Crushing is deferred so that gameplay code can check whether 
+      // the crushing entity is visually overlapped with the crushed item before
+      // making any changes.
+      if (crushed_entity) {
+        g_target.entity = crushed_entity;
+      }
+      g_target.ent_idx = ent_idx;
+      g_target.dst_idx = dst_idx;
+      g_target.src_tile = src_tile;
+      g_target.ent_tile = ent_tile;
+      g_target.dst_tile = dst_tile;
       
       result.crushed_token = dst_tile;
     }
@@ -1012,11 +1041,11 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   
   // Large boulders
   static B32 should_crush = 0;
+  
   U32 large_boulders_count = level->large_boulders_count;
   G_Entity *large_boulders = level->large_boulders;
   for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
     G_Entity *boulder = &large_boulders[boulder_idx];
-    
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
     if (gravity.landed_on_token & G_TileToken_Lava) {
       g_entity_sink(boulder, level);
@@ -1026,22 +1055,37 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
         should_crush = 1;
       }
     }
-    
-    // Don't let the player move when a boulder is falling/crushing something;
-    // if we do, they can dodge it by moving to an adjecent tile and "walk through"
-    // a boulder falling next to them.
+    // Prevent the player from moving when a boulder is falling/crushing.
     if (boulder->move.active) {
       dx = dy = 0;
     }
-    B32 done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
-    if (done && should_crush) { 
+    
+    // Finish crushing entity if the boulder has completely visually overlapped it.
+    B32 movement_done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
+    if (movement_done) {
+      if (g_target.entity) {
+        g_target.entity->health = 0;
+      }
+      MemoryZeroStruct(&g_target);
+    }
+    // Finish crushing tile if the boulder has partially begun to visually overlap it.
+    B32 movement_halfway_done = (boulder->move.t >= 0.5);
+    if (movement_halfway_done) {
+      map->tokens[g_target.ent_idx] = g_target.src_tile;
+      map->tokens[g_target.dst_idx] = g_target.ent_tile;
+      boulder->tilemap_idx = g_target.dst_idx;
+      MemoryZeroStruct(&g_target);
+    }
+    
+    // Initiate another crush transaction
+    if (movement_done && should_crush) { 
       G_EntityCrushResult crush_result = g_entity_crush(boulder, level);
       G_TileToken crushed = crush_result.crushed_token;
-      B32 crushed_ore = 
+      B32 did_crush_ore = 
       (crushed & G_TileToken_OreT2) || 
       (crushed & G_TileToken_OreT1) || 
       (crushed & G_TileToken_OreT0);
-      if (crushed_ore) {
+      if (did_crush_ore) {
         g_rsrc_change(rsrc, 0, 1);
       }
       should_crush = 0;
@@ -1102,7 +1146,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   //
   
   // Ladder placement
-  if (g_key_pressed(input, G_Key_Space) && !player.move.active) {
+  if (g_key_pressed(input, G_Key_Space) && !player->move.active) {
     G_TileToken *tile_at_player = &level->map->tokens[player->tilemap_idx];
     if (!(*tile_at_player & G_TileToken_Ladder)) {
       g_undo_push(undo, map, &rsrc->state);
