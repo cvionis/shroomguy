@@ -1102,7 +1102,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   //
   
   // Ladder placement
-  if (g_key_pressed(input, G_Key_Space)) {
+  if (g_key_pressed(input, G_Key_Space) && !player.move.active) {
     G_TileToken *tile_at_player = &level->map->tokens[player->tilemap_idx];
     if (!(*tile_at_player & G_TileToken_Ladder)) {
       g_undo_push(undo, map, &rsrc->state);

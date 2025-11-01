@@ -1,7 +1,5 @@
 // TODO
 
-[ ] Resource tile causing issues in tilemap logic (mine it from left, mine under, then go up)
-
 [ ] Make large boulder crushing logic on all entities similar to player-crushing logic
 		so it executes better visually
 		- give each large boulder entity a "crush_target" member
