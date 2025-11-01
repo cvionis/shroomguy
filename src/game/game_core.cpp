@@ -899,12 +899,10 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_ResourceContext *rsrc, S32 dx,
         }
         
         if (dst_ent) {
-          if (g_rsrc_get_rsrc_count(rsrc) > 0) {
-            dst_ent->health -= 1;
-            if (dst_ent->health <= 0) {
-              mined = 1;
-              map->tokens[dst_idx] = G_TileToken_Empty;
-            }
+          dst_ent->health -= 1;
+          if (dst_ent->health <= 0) {
+            mined = 1;
+            map->tokens[dst_idx] = G_TileToken_Empty;
           }
         }
       }
@@ -964,10 +962,10 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     g_entity_sink(player, level);
     landed_on_lava = 1;
   }
-  B32 landed_on_lava_done = g_transition_v2f32_update(&player->move, &player->pos, delta_time);
+  B32 movement_done = g_transition_v2f32_update(&player->move, &player->pos, delta_time);
   
   // Death by lava! AAAA!
-  if (landed_on_lava && landed_on_lava_done) {
+  if (landed_on_lava && movement_done) {
     B32 player_on_last_row = (player->pos.y >= level->map->height-1);
     if (player_on_last_row) {
       player->health = 0;
@@ -993,7 +991,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     G_Entity *boulder = &small_boulders[boulder_idx];
     
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
-    if (gravity.landed_on_token == G_TileToken_Lava) {
+    if (gravity.landed_on_token & G_TileToken_Lava) {
       g_entity_sink(boulder, level);
     }
     U32 landed_on_idx = gravity.landed_on_idx;
@@ -1004,7 +1002,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     if (landed_on_enemy && absf32(enemy->pos.y - boulder->pos.y) <= 1.05f) {
       G_Entity *ent = g_air_enemy_from_tilemap_idx(level, landed_on_idx);
       gravity = g_entity_apply_gravity(ent, level);
-      if (gravity.landed_on_token == G_TileToken_Lava) {
+      if (gravity.landed_on_token & G_TileToken_Lava) {
         g_entity_sink(ent, level);
       }
     }
@@ -1020,7 +1018,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     G_Entity *boulder = &large_boulders[boulder_idx];
     
     G_EntityGravityResult gravity = g_entity_apply_gravity(boulder, level);
-    if (gravity.landed_on_token == G_TileToken_Lava) {
+    if (gravity.landed_on_token & G_TileToken_Lava) {
       g_entity_sink(boulder, level);
     }
     else {
@@ -1072,7 +1070,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     
     if (enemy->health) {
       G_EntityGravityResult gravity = g_entity_apply_gravity(enemy, level);
-      if (gravity.landed_on_token == G_TileToken_Lava) {
+      if (gravity.landed_on_token & G_TileToken_Lava) {
         g_entity_sink(enemy, level);
       }
       
@@ -1093,9 +1091,10 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   G_Entity *rsrc_tiles = level->rsrc_tiles;
   for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
     G_Entity *rsrc_tile = &rsrc_tiles[rsrc_tile_idx];
-    g_entity_apply_gravity(rsrc_tile, level);
-    
-    g_transition_v2f32_update(&rsrc_tile->move, &rsrc_tile->pos, delta_time);
+    if (rsrc_tile->health > 0) {
+      g_entity_apply_gravity(rsrc_tile, level);
+      g_transition_v2f32_update(&rsrc_tile->move, &rsrc_tile->pos, delta_time);
+    }
   }
   
   //
@@ -1120,17 +1119,17 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     
     G_EntityMineResult mine_result = g_entity_mine(player, level, rsrc, dx, dy);
     U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
-    
-    // Move to the mined tile if there is not an entity sitting on the mined tile.
-    G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
-    G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-    G_Entity *d = g_rsrc_tile_from_tilemap_idx(level, above_mined_tile_idx);
-    if (!(a || b || c || d) && mine_result.mined) {
-      g_entity_move(player, level, dx, dy, tr);
+    if (mine_result.mined) {
+      // Move to the mined tile if there is not an entity sitting on the mined tile.
+      G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
+      G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+      G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+      G_Entity *d = g_rsrc_tile_from_tilemap_idx(level, above_mined_tile_idx);
+      if (!(a || b || c || d)) {
+        g_entity_move(player, level, dx, dy, tr);
+      }
     }
   }
-  
   return result;
 }
 
@@ -1383,11 +1382,9 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     G_Entity *ground_enemies = level->ground_enemies;
     for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
       G_Entity *enemy = &ground_enemies[enemy_idx];
-      
       if (enemy->health > 0) { 
         F32 scaled_spr_x = scale * enemy->pos.x;
         F32 scaled_spr_y = scale * enemy->pos.y;
-        
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
       }
     }

@@ -1,8 +1,6 @@
 // TODO
 
-[ ] When an entitiy sinks into lava, it should not be able to interact with the 
-		player when the player sits on that lava tile; the player should *always* just
-		sink and lose when landing on a lava tile.
+[ ] Resource tile causing issues in tilemap logic (mine it from left, mine under, then go up)
 
 [ ] Make large boulder crushing logic on all entities similar to player-crushing logic
 		so it executes better visually
@@ -23,7 +21,7 @@
 
 Codebase:
 - Carry over new sound layer to _Home
-- Carry over cleaned up bae_string to _Home
+- Carry over cleaned up base_string to _Home
 - MemorySet: count should really be size as it means count in bytes
 
 Runtime-tweakable constants:
