@@ -233,8 +233,8 @@ entry_point(void)
   game.undo = g_undo_make();
   
   {
-    // @Todo: Do this every time a new level is loaded using its maps' unique max values
-    g_rsrc_init(&game.rsrc, 6, 1);
+    // @Todo: Do this every time a new level is loaded using its maps' unique max values (?
+    g_rsrc_init(&game.rsrc, 8, 1);
   }
   while (!game.quit) {
     update();

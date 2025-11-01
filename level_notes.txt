@@ -1,0 +1,36 @@
+#0
+
+Primary role is to just introduce the core mining/ore collection mechanic of the game
+
+---
+
+#1 
+
+A decent little introduction to the importance of using ladders and resources wisely.
+I'm not sure if I should introduce ladders this early on, but they are a pretty crucial
+mechanic in this game, so I don't think it's a bad thing to do so.
+
+---
+
+#2 
+
+Meant to introduce enemies; the solution is pretty straightforward and direct, which is probably
+fine for the third level. 
+
+---
+
+#3 
+
+This level's role is simply another basic exercise in making optimal moves with two ores and no 
+resource replenishment. I think it's a decent little level, although the enemies are probably
+completely redundant.
+
+---
+
+#4 
+
+An intro to levels with small boulders. I think this is a decent intro to small boulders as 
+the player can use the boulder to help him beat the level, rather than the boulder just being 
+an annoyance that the player has to move out of the way.
+
+---

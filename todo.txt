@@ -1,5 +1,7 @@
 // TODO
 
+[ ] Bug: ore progress starts at 1/N instead of 0/N.
+
 [ ] Level screen layout
 
 [ ] Finishing boulder crushing fixes

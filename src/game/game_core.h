@@ -10,7 +10,7 @@
 #define G_LEVEL_RSRC_TILES_MAX 16
 #define G_AIR_ENEMY_HEALTH_MAX 1
 #define G_GROUND_ENEMY_HEALTH_MAX 2
-#define G_MINE_MAX 10
+#define G_MINE_MAX 14
 
 //
 // Input
