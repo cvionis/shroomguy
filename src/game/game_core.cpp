@@ -697,13 +697,19 @@ g_entity_crush(G_Entity *entity, G_Level *level)
       // making any changes.
       if (crushed_entity) {
         g_target.entity = crushed_entity;
+        g_target.entity->tilemap_idx = dst_idx;
       }
+#if 0
       g_target.ent_idx = ent_idx;
       g_target.dst_idx = dst_idx;
       g_target.src_tile = src_tile;
       g_target.ent_tile = ent_tile;
       g_target.dst_tile = dst_tile;
+#endif
       
+      map->tokens[ent_idx] = src_tile;
+      map->tokens[dst_idx] = ent_tile;
+      entity->tilemap_idx = dst_idx;
       result.crushed_token = dst_tile;
     }
   }
@@ -1060,20 +1066,23 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
       dx = dy = 0;
     }
     
+#if 0
+    // Finish crushing tile if the boulder has partially begun to visually overlap it.
+    B32 movement_halfway_done = (boulder->move.t >= 0.5f);
+    if (movement_halfway_done) {
+      map->tokens[g_target.ent_idx] = g_target.src_tile;
+      map->tokens[g_target.dst_idx] = g_target.ent_tile;
+      boulder->tilemap_idx = g_target.dst_idx;
+      MemoryZeroStruct(&g_target);
+    }
+#endif
+    
     // Finish crushing entity if the boulder has completely visually overlapped it.
     B32 movement_done = g_transition_v2f32_update(&boulder->move, &boulder->pos, delta_time);
     if (movement_done) {
       if (g_target.entity) {
         g_target.entity->health = 0;
       }
-      MemoryZeroStruct(&g_target);
-    }
-    // Finish crushing tile if the boulder has partially begun to visually overlap it.
-    B32 movement_halfway_done = (boulder->move.t >= 0.5);
-    if (movement_halfway_done) {
-      map->tokens[g_target.ent_idx] = g_target.src_tile;
-      map->tokens[g_target.dst_idx] = g_target.ent_tile;
-      boulder->tilemap_idx = g_target.dst_idx;
       MemoryZeroStruct(&g_target);
     }
     

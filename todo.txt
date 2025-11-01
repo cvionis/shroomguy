@@ -1,12 +1,8 @@
 // TODO
 
-[ ] Make large boulder crushing logic on all entities similar to player-crushing logic
-		so it executes better visually
-		- give each large boulder entity a "crush_target" member
-		- in g_entity_crush, just set the crush target.
-		- when iterating over all the large boulders, check its move transition status;
-			if its done (the boulder has visually covered the crushed target) and the
-			boulder has a crush target, do the necessary tilemap work.
+[ ] Level screen layout
+
+[ ] Finishing boulder crushing fixes
 [ ] Give each level its own max player resources
 [ ] Falling position transitions should be a constant speed, and not speed up 
 		when fallen distance is larger -- this can be accomplished by giving transitions
