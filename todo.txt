@@ -1,19 +1,18 @@
 // TODO
 
-[ ] Bug: ore progress starts at 1/N instead of 0/N.
+[ ] Bugs: 
+	 - ore progress starts at 1/N instead of 0/N.
+	 - sometimes you can't mine a resource tile after undoing... (or maybe it's when resources are 0)
+   - you can still place ladders even when you have no resources! oopsie!
 
 [ ] Level screen layout
 
-[ ] Finishing boulder crushing fixes
-[ ] Give each level its own max player resources
+[ ] Finishing boulder crushing improvement pass
 [ ] Falling position transitions should be a constant speed, and not speed up 
 		when fallen distance is larger -- this can be accomplished by giving transitions
 		a transition speed rather than a transition time/duration.
 [ ] Identifying corner tiles and choosing the appropriate sprite for them
 [ ] Flipping player sprite when changing direction
-
-* "Picaxe" -> energy/resources (shrews can just mine  with hands/nose; replenished by eating
-	resource tiles' mushrooms.
 
 ----
 

@@ -34,3 +34,8 @@ the player can use the boulder to help him beat the level, rather than the bould
 an annoyance that the player has to move out of the way.
 
 ---
+
+#5 
+
+This one is really a step up in difficulty from the last one. Tests the player's ability to wisely
+use boulders again, and introduces resource tiles. 

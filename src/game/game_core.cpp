@@ -930,7 +930,7 @@ g_entity_mine(G_Entity *entity, G_Level *level, G_ResourceContext *rsrc, S32 dx,
         }
         else if (dst_tile & G_TileToken_Resource) {
           dst_ent = g_rsrc_tile_from_tilemap_idx(level, dst_idx);
-          g_rsrc_change(rsrc, 1, 0);
+          g_rsrc_change(rsrc, 2, 0);
         }
         
         if (dst_ent) {
