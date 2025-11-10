@@ -21,9 +21,7 @@ fine for the third level.
 
 #3 
 
-This level's role is simply another basic exercise in making optimal moves with two ores and no 
-resource replenishment. I think it's a decent little level, although the enemies are probably
-completely redundant.
+This needs to be replaced. It's not really a step up from the previous level.
 
 ---
 
