@@ -218,7 +218,7 @@ g_rsrc_init(G_ResourceContext *ctx, S32 rsrc_max, S32 ores_max)
   ctx->state.rsrc_count = rsrc_max;
 
   ctx->ores_max = ores_max;
-  ctx->state.ores_count = ores_max;
+  ctx->state.ores_count = 0;
 }
 
 function S32

@@ -68,6 +68,7 @@ update(void)
 
       game.level = g_level_from_tilemap(&game.current_map);
       game.level.map = &game.current_map;
+      g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
 
       g_undo_clear(&game.undo);
     }
@@ -210,40 +211,26 @@ entry_point(void)
   game.assets = g_assets_alloc(S8("../data"));
 
   game.mixer = m_context_alloc();
-
   game.sound = m_sound_from_file(game.mixer, S8("../data/sounds/mine_stone.mp3"));
   m_sound_set_loop(game.sound, 1);
   m_sound_set_pan(game.sound, 0);
 
   game.maps = g_maps_read(S8("../data/maps/default.maps"));
-  if (game.maps.count > 0) {
-    U32 last_played_idx = game.maps.last_played_map_idx;
-    G_TileMap last_played_map = g_maps_get_copy(&game.maps, last_played_idx);
+  Assert(game.maps.count > 0);
 
-    game.current_map_idx = last_played_idx;
-    game.current_map = last_played_map;
-    game.level = g_level_from_tilemap(&game.current_map);
-    game.level.map = &game.current_map;
-  }
-  else {
-    // @Todo: Show an error MessageBox?
-    BreakDebugger();
-  }
-
+  U32 last_played_idx = game.maps.last_played_map_idx;
+  G_TileMap last_played_map = g_maps_get_copy(&game.maps, last_played_idx);
+  game.current_map_idx = last_played_idx;
+  game.current_map = last_played_map;
+  game.level = g_level_from_tilemap(&game.current_map);
+  game.level.map = &game.current_map;
+  g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
   game.undo = g_undo_make();
 
-  {
-    // @Todo: Do this every time a new level is loaded using its maps' unique max values (?
-    g_rsrc_init(&game.rsrc, 8, 1);
-  }
   while (!game.quit) {
     update();
     render();
   }
-
-#if 0
-  g_maps_write(&game.maps, S8("../data/maps/default.maps"));
-#endif
 
   m_context_release(game.mixer);
   g_undo_release(&game.undo);

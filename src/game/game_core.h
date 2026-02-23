@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// Constants 
+// Constants
 //
 
 #define G_TILEMAP_TOKENS_MAX 512
@@ -10,7 +10,7 @@
 #define G_LEVEL_RSRC_TILES_MAX 16
 #define G_AIR_ENEMY_HEALTH_MAX 1
 #define G_GROUND_ENEMY_HEALTH_MAX 2
-#define G_MINE_MAX 14
+#define G_MINE_MAX 8
 
 //
 // Input
@@ -89,22 +89,22 @@ enum G_TransitionCurve {
 struct G_TransitionF32 {
   F32 src;
   F32 dst;
-  
+
   F32 t;
   B32 active;
   F32 speed;
-  
+
   G_TransitionCurve curve;
 };
 
 struct G_TransitionV2F32 {
   V2F32 src;
   V2F32 dst;
-  
+
   F32 t;
   B32 active;
   F32 speed;
-  
+
   G_TransitionCurve curve;
 };
 
@@ -114,7 +114,7 @@ struct G_TransitionV2F32 {
 
 enum G_TileToken {
   G_TileToken_Null,
-  
+
   G_TileToken_Empty        = (1 << 0),
   G_TileToken_Dirt         = (1 << 1),
   G_TileToken_StoneT0      = (1 << 2),
@@ -195,19 +195,19 @@ struct G_Level {
   G_TileMap *map;
   G_Entity player;
   U32 ore_count;
-  
+
   U32 ground_enemies_count;
   G_Entity ground_enemies[G_LEVEL_ENEMIES_MAX];
-  
+
   U32 air_enemies_count;
   G_Entity air_enemies[G_LEVEL_ENEMIES_MAX];
-  
+
   U32 small_boulders_count;
   G_Entity small_boulders[G_LEVEL_BOULDERS_MAX];
-  
+
   U32 large_boulders_count;
   G_Entity large_boulders[G_LEVEL_BOULDERS_MAX];
-  
+
   U32 rsrc_tiles_count;
   G_Entity rsrc_tiles[G_LEVEL_RSRC_TILES_MAX];
 };
@@ -243,30 +243,30 @@ struct G_ResourceContext {
 struct G_UndoNode {
   G_UndoNode *stack_next;
   G_UndoNode *free_next;
-  
+
   G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
   G_ResourceState rsrc;
 };
 
 struct G_UndoContext {
   Arena *arena;
-  
+
   G_UndoNode *first; // Most recent undo state
   G_UndoNode *last;  // Least recent undo state
   U32 count;
-  
+
   G_UndoNode *free;
 };
 
-// 
+//
 // Map storage and serialization
 //
 
-// @Note: The only time the maps array should be changed is in editor mode or when 
+// @Note: The only time the maps array should be changed is in editor mode or when
 // a level is unlocked/beaten.
 
 // @Note: array of maps should not be changed directly by gameplay code; only editor code.
-// @Todo: You could also just read this into a big string and make sure no padding is 
+// @Todo: You could also just read this into a big string and make sure no padding is
 // needed between elements for good alignment and specify that the struct should have no
 // padding, then just read it directly into the struct.
 #define G_MAPS_MAX 32
@@ -277,7 +277,7 @@ struct G_MapStorage {
 };
 
 function G_MapStorage g_maps_read(String8 path);
-function void g_maps_write(G_MapStorage *maps, String8 path); 
+function void g_maps_write(G_MapStorage *maps, String8 path);
 function G_TileMap g_maps_get_copy(G_MapStorage *maps, U32 map_idx);
 
 //
