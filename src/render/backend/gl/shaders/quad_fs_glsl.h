@@ -1,4 +1,4 @@
-char *quad_fs_glsl = 
+char *quad_fs_glsl =
 "#version 450 core\n"
 // Interpolated vertex shader outputs
 "in vec4       v_uv_rect;\n"
@@ -42,7 +42,6 @@ char *quad_fs_glsl =
 "    }\n"
 "  }\n"
 // Rotation (opposite of rect's rotation)
-// TODO: You could just give the fs the rotated position, right?
 "  vec2 q = gl_FragCoord.xy - v_rect_center;\n"
 "  float c = cos(-v_theta);\n"
 "  float s = sin(-v_theta);\n"
@@ -69,11 +68,11 @@ char *quad_fs_glsl =
 "      color.a *= s;\n"
 "    }\n"
 "  }\n"
-// Calculate color gradient interpolation factors 
+// Calculate color gradient interpolation factors
 "  float color_v_t = clamp(uv_ytu, 0.0, 1.0);\n"
 "  float color_h_t = clamp(uv_xtu, 0.0, 1.0);\n"
-// Shrink the rectangle's half-size used for distance calculations with the edge 
-// softness. If we don't do this, the underlying primitive will cut off the falloff 
+// Shrink the rectangle's half-size used for distance calculations with the edge
+// softness. If we don't do this, the underlying primitive will cut off the falloff
 // too early (https://www.rfleury.com/p/ui-part-6-rendering).
 "  float softness = v_corner_softness;\n"
 "  float soft_n = softness*2.0-1.0;\n"
@@ -87,9 +86,8 @@ char *quad_fs_glsl =
 "  float border_factor = smoothstep(0.0, 2.0*softness, d1);\n"
 // Don't consider SDF factor for alpha sampling mode
 "  sdf_factor = mix(sdf_factor, 1.0, v_sample_mode);\n"
-// Compute final fragment color 
+// Compute final fragment color
 "  vec4 gradient_color = mix(v_c0, v_c1, color_h_t) * mix(v_c2, v_c3, color_v_t);\n"
 "  vec4 fill_color = mix(color, vec4(border_factor), v_border_thickness);\n"
 "  frag_color = fill_color * gradient_color * sdf_factor;\n"
 "}\n";
-

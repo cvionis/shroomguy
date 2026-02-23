@@ -1,14 +1,9 @@
 // TODO
 
-[ ] Bugs: 
-	 - ore progress starts at 1/N instead of 0/N.
-	 - sometimes you can't mine a resource tile after undoing... (or maybe it's when resources are 0)
-   - you can still place ladders even when you have no resources! oopsie!
-
 [ ] Level screen layout
 
 [ ] Finishing boulder crushing improvement pass
-[ ] Falling position transitions should be a constant speed, and not speed up 
+[ ] Falling position transitions should be a constant speed, and not speed up
 		when fallen distance is larger -- this can be accomplished by giving transitions
 		a transition speed rather than a transition time/duration.
 [ ] Identifying corner tiles and choosing the appropriate sprite for them
@@ -22,7 +17,7 @@ Codebase:
 - MemorySet: count should really be size as it means count in bytes
 
 Runtime-tweakable constants:
-- Macro that registers a constant to a table, with filename and line no; returns 
+- Macro that registers a constant to a table, with filename and line no; returns
 	current value in the table
 - Code that iterates thru the table every frame and seeks to tweak file positions,
 	updating value in table with new values
@@ -74,9 +69,9 @@ API -- Note:
 - Will probably need to be able to divide sounds being played into separate *channels*,
   each which can have their own volume, pan, pitch effects.
 
-		Mixer : { channel0 : { effect0, effect1 } , channel1, ... } 
+		Mixer : { channel0 : { effect0, effect1 } , channel1, ... }
 
-	Note that sounds will not be stored in channels -- they just store a set 
+	Note that sounds will not be stored in channels -- they just store a set
 	of parameters shared among several  sounds. This could be done like the following.
 	The channel number provided just indexes into an array of channels stored in a local
 	mixer context created by the application.
@@ -93,7 +88,7 @@ API -- Note:
 
 		struct S_Mixer {
 			S_Channel channels[S_MIXER_CHANNELS_MAX];
-			S32 channels_count; 
+			S32 channels_count;
 		};
 
 - I'm not sure if I want to store a table of sounds that can be looked up by name in the
@@ -103,12 +98,12 @@ API -- Note:
 
 - Rename higher-level API "mixer" rather than "player"
 - Use signed integers instead of unsigned in most places.
-- Passing sample rate to s_sound_load is kind of redundant; you can just sample 
+- Passing sample rate to s_sound_load is kind of redundant; you can just sample
 	it at the same rate as the one passed in s_init().
 
 ------------------------------------------------
 
---- 
+---
 
 - Later: Fix draw order.
 
@@ -126,7 +121,7 @@ CAN WAIT:
 - Sensible window resizing
 - Fancy lighting and post-processing
 
-Bugs: 
+Bugs:
 
 - Losing when mining ore underneath enemy ; this shouldn't happen.
 
@@ -138,9 +133,9 @@ Cleanup pass:
 	  and end (starting a transition; parameters depend on whether it's moving, mining, etc.
 	  and I don't want them to be the same); and updating the tilemap.
 
-	* Maybe instead of trying to unify these functions' codepaths, you can minimize the 
-		amount of repeated code you have at the beginning and ending by having each of 
-		these functions internally call helper functions. 
+	* Maybe instead of trying to unify these functions' codepaths, you can minimize the
+		amount of repeated code you have at the beginning and ending by having each of
+		these functions internally call helper functions.
 
 - Wrapping all the operations you do when undoing/redoing into a helper function
 - Making what is essentially collision detection (e.g. when visual position needs to be checked instead of position in tilemap) easier and less hacky to check. In other words,
@@ -148,12 +143,12 @@ improving the api of entity_move, _mine, etc. (related to entity movement codepa
 
 -----
 
-- I want beating one level to unlock more than one level sometimes instead of just 
+- I want beating one level to unlock more than one level sometimes instead of just
 	having the player unlock a single level after another.
 
 - Add ability to flip a texture (or quad?) in either axis when drawing it
 
-- Rework animations a bit to be a little more independent of (less directly tied to) 
+- Rework animations a bit to be a little more independent of (less directly tied to)
 	the asset context (they should just deal with individual spritesheet assets)
 
 - Sensible scaling across window resizing
@@ -172,7 +167,7 @@ improving the api of entity_move, _mine, etc. (related to entity movement codepa
 
 - Ores, player should glow.
 
---- 
+---
 
 [ ] Use & instead of == when correct in code comparing tile tokens.
 
@@ -183,11 +178,11 @@ improving the api of entity_move, _mine, etc. (related to entity movement codepa
 
 [ ] Particles when mining/destroying block
 
-[ ] Experiment with Ladders/steps that exist as part of level, not manually placed. 
+[ ] Experiment with Ladders/steps that exist as part of level, not manually placed.
 		Maybe they can be destroyed by boulders.
 
 [ ] Lighting
-[ ] Animation pass 
+[ ] Animation pass
 [ ] Rounding corners of exposed blocks
 
 [ ] Some blocks are not smoothly covered then crushed when being crushed; non-entities

@@ -173,7 +173,7 @@ render(void)
     {
       TempArena tmp = arena_temp_begin(game.arena);
 
-      r_text(renderer, S8("Picaxe: "), game.font, 32, v2f32(picaxe_bar_x,0), col, 0);
+      r_text(renderer, S8("Resources"), game.font, 32, v2f32(picaxe_bar_x,0), col, 0);
 
       U32 ore_collected = g_rsrc_get_ores_count(&game.rsrc);
       U32 ore_count = game.level.ore_count;
