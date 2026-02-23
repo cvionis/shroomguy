@@ -10,7 +10,7 @@
 struct ED_UndoNode {
   ED_UndoNode *stack_next;
   ED_UndoNode *free_next;
-  
+
   G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
   S32 width;
   S32 height;
@@ -18,11 +18,11 @@ struct ED_UndoNode {
 
 struct ED_UndoContext {
   Arena *arena;
-  
+
   ED_UndoNode *first; // Most recent undo state
   ED_UndoNode *last;  // Least recent undo state
   S32 count;
-  
+
   ED_UndoNode *free;
 };
 
@@ -43,10 +43,10 @@ struct ED_ChoiceControl {
   F32 pad_x;
   F32 pad_y;
   S32 column_size;
-  
+
   S32 hovered_choice_idx = -1;
   S32 selected_choice_idx = -1;
-  
+
   G_TransitionF32 base_x_transition;
 };
 
@@ -82,11 +82,11 @@ function void ed_choice_ctrl_render(Arena *arena, R_Context *renderer, R_Font *f
 struct ED_MapControl {
   F32 base_x;
   F32 base_y;
-  F32 scale; 
-  
+  F32 scale;
+
   F32 prev_mouse_x;
   F32 prev_mouse_y;
-  
+
   S32 current_map_idx;
   S32 hovered_tile_idx = -1;
   S32 selected_tile_idx = -1;
@@ -121,11 +121,11 @@ struct ED_ResizeControl {
   F32 base_x;
   F32 base_y;
   F32 square_size;
-  
+
   ED_ResizeMode mode;
   ED_ResizeOption options[ED_ResizeDirection_COUNT];
   ED_ResizeDirection hovered_direction = ED_ResizeDirection_None;
-  
+
   G_TransitionF32 base_x_transition;
 };
 
