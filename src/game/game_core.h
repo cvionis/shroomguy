@@ -11,6 +11,7 @@
 #define G_AIR_ENEMY_HEALTH_MAX 1
 #define G_GROUND_ENEMY_HEALTH_MAX 2
 #define G_MINE_MAX 8
+#define G_UPDATE_STEP_SIZE 1.f/60.f
 
 //
 // Input

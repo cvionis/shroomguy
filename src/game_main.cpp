@@ -38,7 +38,7 @@ struct GameState {
 global GameState game;
 
 function void
-update(void)
+update(F32 delta_time)
 {
   OS_Handle window = game.window;
 
@@ -85,11 +85,6 @@ update(void)
       game.level.map = map;
     }
   }
-
-  static F64 prev_ticks = 0;
-  F64 curr_ticks = os_get_ticks();
-  F32 delta_time = (F32)(curr_ticks - prev_ticks) / (F32)os_get_ticks_frequency();
-  prev_ticks = curr_ticks;
 
   if (g_key_pressed(&game.input, G_Key_Z)) {
     G_TileMap *map = game.level.map;
@@ -228,7 +223,20 @@ entry_point(void)
   game.undo = g_undo_make();
 
   while (!game.quit) {
-    update();
+    static F64 prev_ticks = os_get_ticks();
+    static F32 acc = 0;
+    static F32 frame_time = 1.f/60.f;
+
+    F64 curr_ticks = os_get_ticks();
+    F32 delta_time = (F32)(curr_ticks - prev_ticks) / (F32)os_get_ticks_frequency();
+    delta_time = Min(delta_time, frame_time);
+    prev_ticks = curr_ticks;
+
+    acc += delta_time;
+    while (acc >= frame_time) {
+      update(frame_time);
+      acc -= frame_time;
+    }
     render();
   }
 
