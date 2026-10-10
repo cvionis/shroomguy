@@ -1330,7 +1330,7 @@ g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 }
 
 function void
-g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
+g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y)
 {
   S32 map_width = map->width;
   S32 map_height = map->height;
@@ -1344,8 +1344,8 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 
   // Background tiles
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
-    spr_x = scale * (token_idx % map_width);
-    spr_y = scale * (token_idx / map_width);
+    spr_x = x + scale * (token_idx % map_width);
+    spr_y = y + scale * (token_idx / map_width);
 
     g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
   }
@@ -1354,8 +1354,8 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
 
-    spr_x = scale * (token_idx % map_width);
-    spr_y = scale * (token_idx / map_width);
+    spr_x = x + scale * (token_idx % map_width);
+    spr_y = y + scale * (token_idx / map_width);
 
     G_TileToken token = tokens[token_idx];
     switch (token) {
@@ -1398,68 +1398,26 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 {
   F32 scale = 64; // @Note: Temporary
 
-  F32 base_x = 0;
-  F32 base_y = 0;
-
-
-#if 0
   F32 screen_width  = 1264.f;
   F32 screen_height = 681.f;
 
-  F32 box_width  = 200.f;
-  F32 box_height = 300.f;
-  F32 box_spacing = 32.f;
+  F32 tile_size = 64.f;
+  F32 tiles_x = (F32)level->map->width;
+  F32 tiles_y = (F32)level->map->height;
 
-  S32 box_count = G_UPGRADE_PRESENT_COUNT;
-  S32 space_count = G_UPGRADE_PRESENT_COUNT - 1;
-  F32 total_width = box_count * box_width + space_count * box_spacing;
+  F32 total_width  = tiles_x * tile_size;
+  F32 total_height = tiles_y * tile_size;
 
-  F32 start_x = (screen_width - total_width) * 0.5f;
-  F32 y = (screen_height - box_height) * 0.5f;
+  F32 base_x = (screen_width - total_width) * 0.5f;
+  F32 base_y = (screen_height - total_height) * 0.5f;
 
-  V4F32 color = v4f32(0, 1, 0, 1);
-
-  for (S32 upgrade_idx = 0;
-       upgrade_idx < G_UPGRADE_PRESENT_COUNT;
-       upgrade_idx += 1)
-  {
-    G_Upgrade *ug = &ctx->presented[upgrade_idx];
-
-    F32 x = start_x + upgrade_idx * (box_width + box_spacing);
-
-    R_Quad quad = {};
-    quad.rect = { x, y, x + box_width, y + box_height };
-    quad.border_thickness = 2.f;
-    quad.colors[0] = color;
-    quad.colors[1] = color;
-    quad.colors[2] = color;
-    quad.colors[3] = color;
-
-    r_quad(renderer, &quad, 0);
-
-    r_text(
-      renderer,
-      ug->desc,
-      state->font,
-      16,
-      v2f32(x + 20.f, y + 20.f),
-      color,
-      0
-    );
-    #endif
-
-
-
-
-
-
-  g_render_tilemap(renderer, assets, level->map);
+  g_render_tilemap(renderer, assets, level->map, base_x, base_y);
 
   {
     G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
     G_Entity *player = &level->player;
-    F32 scaled_spr_x = scale * player->pos.x;
-    F32 scaled_spr_y = scale * player->pos.y;
+    F32 scaled_spr_x = base_x + (scale * player->pos.x);
+    F32 scaled_spr_y = base_y + (scale * player->pos.y);
 
     g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
   }
@@ -1474,8 +1432,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       G_Entity *enemy = &air_enemies[enemy_idx];
 
       if (enemy->health > 0) {
-        F32 scaled_spr_x = scale * enemy->pos.x;
-        F32 scaled_spr_y = scale * enemy->pos.y;
+        F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
+        F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
 
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
       }
@@ -1491,8 +1449,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
       G_Entity *enemy = &ground_enemies[enemy_idx];
       if (enemy->health > 0) {
-        F32 scaled_spr_x = scale * enemy->pos.x;
-        F32 scaled_spr_y = scale * enemy->pos.y;
+        F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
+        F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
       }
     }
@@ -1507,8 +1465,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 
     for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
       G_Entity *boulder = &small_boulders[boulder_idx];
-      F32 scaled_spr_x = scale * boulder->pos.x;
-      F32 scaled_spr_y = scale * boulder->pos.y;
+      F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
+      F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
       g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
     }
   }
@@ -1522,8 +1480,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 
     for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
       G_Entity *boulder = &large_boulders[boulder_idx];
-      F32 scaled_spr_x = scale * boulder->pos.x;
-      F32 scaled_spr_y = scale * boulder->pos.y;
+      F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
+      F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
       g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
     }
   }
@@ -1538,8 +1496,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
       G_Entity *rsrc_tile = &rsrc_tiles[rsrc_tile_idx];
       if (rsrc_tile->health > 0) {
-        F32 scaled_spr_x = scale * rsrc_tile->pos.x;
-        F32 scaled_spr_y = scale * rsrc_tile->pos.y;
+        F32 scaled_spr_x = base_x + (scale * rsrc_tile->pos.x);
+        F32 scaled_spr_y = base_y + (scale * rsrc_tile->pos.y);
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
       }
     }

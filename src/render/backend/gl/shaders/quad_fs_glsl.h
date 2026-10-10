@@ -15,6 +15,7 @@ char *quad_fs_glsl =
 "in vec2       v_rect_half_dim;\n"
 "in vec2       v_pos;\n"
 "in float      v_theta;\n"
+"in vec4       v_filter_color;\n"
 // Output color
 "out vec4 frag_color;\n"
 // Constants and uniforms
@@ -89,5 +90,5 @@ char *quad_fs_glsl =
 // Compute final fragment color
 "  vec4 gradient_color = mix(v_c0, v_c1, color_h_t) * mix(v_c2, v_c3, color_v_t);\n"
 "  vec4 fill_color = mix(color, vec4(border_factor), v_border_thickness);\n"
-"  frag_color = fill_color * gradient_color * sdf_factor;\n"
+"  frag_color = v_filter_color * fill_color * gradient_color * sdf_factor;\n"
 "}\n";

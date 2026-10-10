@@ -338,6 +338,6 @@ function G_Entity *g_rsrc_tile_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
 function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);
-function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map);
+function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y);
 
 function void g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level);

@@ -12,6 +12,8 @@
 #include "sound/sound_inc.cpp"
 #include "game/game_inc.cpp"
 
+G_TransitionF32 screen_filter_transition;
+
 struct GameState {
   Arena *arena;
   OS_Handle window;
@@ -93,6 +95,7 @@ update(F32 delta_time)
     g_level_refresh_entities(&game.level);
 
     game.lost = 0;
+    r_screen_filter = 1.f;
   }
   else if (g_key_pressed(&game.input, G_Key_R)) {
     G_TileMap *map = game.level.map;
@@ -101,13 +104,19 @@ update(F32 delta_time)
     g_level_refresh_entities(&game.level);
 
     game.lost = 0;
+    r_screen_filter = 1.f;
   }
 
   if (!game.lost) {
     G_LevelSimResult sim = g_simulate_level(&game.level, &game.undo, &game.input, &game.rsrc, delta_time);
     if (sim.lost) {
+      g_transition_f32_start(&screen_filter_transition, r_screen_filter, 0.f, 0.4f, G_TransitionCurve_Linear);
       game.lost = 1;
     }
+  }
+
+  if (game.lost) {
+    g_transition_f32_update(&screen_filter_transition, &r_screen_filter, delta_time);
   }
 
   m_begin_frame(game.mixer);
@@ -130,13 +139,14 @@ render(void)
   {
     g_render_level(renderer, assets, &game.level);
 
-    V4F32 col = v4f32(0.6f,0.526f,0.622f,1.f);
+    V4F32 col = v4f32(0.9f,0.9f,0.9f,1);
 
     F32 picaxe_bar_w = 128;
-    F32 picaxe_bar_h = 32;
+    F32 picaxe_bar_h = 16;
 
-    F32 picaxe_bar_x = 700;
-    F32 picaxe_bar_y = 40;
+    F32 picaxe_bar_x = 32;
+    F32 picaxe_bar_y_base = 16;
+    F32 picaxe_bar_y = picaxe_bar_y_base + 32;
 
     {
       R_Quad quad = {0};
@@ -146,9 +156,7 @@ render(void)
       quad.colors[1] = col;
       quad.colors[2] = col;
       quad.colors[3] = col;
-      quad.corner_softness = 0.5f;
       quad.border_thickness = 3.f;
-      quad.radius = 5.f;
       r_quad(renderer, &quad, 0);
     }
 
@@ -160,28 +168,46 @@ render(void)
       quad.colors[1] = col;
       quad.colors[2] = col;
       quad.colors[3] = col;
-      quad.corner_softness = 0.5f;
-      quad.radius = 5.f;
       r_quad(renderer, &quad, 0);
     }
 
     {
       TempArena tmp = arena_temp_begin(game.arena);
 
-      r_text(renderer, S8("Resources"), game.font, 32, v2f32(picaxe_bar_x,0), col, 0);
+      r_text(renderer, S8("Resources"), game.font, 24, v2f32(picaxe_bar_x,picaxe_bar_y_base), col, 0);
 
       U32 ore_collected = g_rsrc_get_ores_count(&game.rsrc);
       U32 ore_count = game.level.ore_count;
 
       String8 ore_progress_str = str8_pushf(tmp.arena, "Ores: %d/%d", ore_collected, ore_count);
-      r_text(renderer, ore_progress_str, game.font, 32, v2f32(picaxe_bar_x, 92), col, 0);
+      r_text(renderer, ore_progress_str, game.font, 24, v2f32(picaxe_bar_x, 92), col, 0);
 
       arena_temp_end(tmp);
     }
 
+    R_Font *font = game.font;
+
+    F32 screen_width = 1264.f;
+    F32 screen_height = 681.f;
+
+    F32 loss_font_size = 32;
+    V4F32 loss_text_col = v4f32(0.95f, 0.95f, 0.95f, 1.f);
+
+    String8 loss_str_0 = S8("Z to Undo");
+    V2S32 text_dim_0 = f_text_string_dim_px(loss_str_0, font->cache, loss_font_size);
+    F32 x0 = (screen_width  - text_dim_0.x) * 0.5f;
+
+    String8 loss_str_1 = S8("R to Restart");
+    V2S32 text_dim_1 = f_text_string_dim_px(loss_str_1, font->cache, loss_font_size);
+    F32 x1 = (screen_width  - text_dim_1.x) * 0.5f;
+
+    F32 loss_text_vertical_spacing = 48;
+    F32 total_height = text_dim_0.y + text_dim_1.y + loss_text_vertical_spacing;
+    F32 lost_text_y = (screen_height - total_height) * 0.5f;
+
     if (game.lost) {
-      r_text(renderer, S8("YOU LOST! Press Z to undo or R to restart."),
-             game.font, 32, v2f32(picaxe_bar_x, 128), v4f32(0.6f,0.4f,0.4f,1.f), 0);
+      r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);
+      r_text(renderer, loss_str_1, game.font, loss_font_size, v2f32(x1, lost_text_y + loss_text_vertical_spacing), loss_text_col, 0);
     }
   }
 
