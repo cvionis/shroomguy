@@ -123,7 +123,7 @@ render(void)
   R_Context *renderer = game.renderer;
   G_AssetContext *assets = game.assets;
 
-  r_set_clear_color(v4f32(0.128f,0.005f,0.005f,1));
+  r_set_clear_color(v4f32(0,0,0,1));
   r_set_viewport(os_window_client_rect(window));
   r_begin_frame(renderer);
 

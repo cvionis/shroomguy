@@ -11,13 +11,6 @@ struct G_CrushTarget {
   G_TileToken dst_tile;
 };
 
-#if 0
-struct G_CrushState {
-  B32 should_crush;
-  G_CrushTarget target;
-};
-#endif
-
 global G_CrushTarget g_target = {};
 
 function void
@@ -1404,6 +1397,61 @@ function void
 g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 {
   F32 scale = 64; // @Note: Temporary
+
+  F32 base_x = 0;
+  F32 base_y = 0;
+
+
+#if 0
+  F32 screen_width  = 1264.f;
+  F32 screen_height = 681.f;
+
+  F32 box_width  = 200.f;
+  F32 box_height = 300.f;
+  F32 box_spacing = 32.f;
+
+  S32 box_count = G_UPGRADE_PRESENT_COUNT;
+  S32 space_count = G_UPGRADE_PRESENT_COUNT - 1;
+  F32 total_width = box_count * box_width + space_count * box_spacing;
+
+  F32 start_x = (screen_width - total_width) * 0.5f;
+  F32 y = (screen_height - box_height) * 0.5f;
+
+  V4F32 color = v4f32(0, 1, 0, 1);
+
+  for (S32 upgrade_idx = 0;
+       upgrade_idx < G_UPGRADE_PRESENT_COUNT;
+       upgrade_idx += 1)
+  {
+    G_Upgrade *ug = &ctx->presented[upgrade_idx];
+
+    F32 x = start_x + upgrade_idx * (box_width + box_spacing);
+
+    R_Quad quad = {};
+    quad.rect = { x, y, x + box_width, y + box_height };
+    quad.border_thickness = 2.f;
+    quad.colors[0] = color;
+    quad.colors[1] = color;
+    quad.colors[2] = color;
+    quad.colors[3] = color;
+
+    r_quad(renderer, &quad, 0);
+
+    r_text(
+      renderer,
+      ug->desc,
+      state->font,
+      16,
+      v2f32(x + 20.f, y + 20.f),
+      color,
+      0
+    );
+    #endif
+
+
+
+
+
 
   g_render_tilemap(renderer, assets, level->map);
 
