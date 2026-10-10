@@ -12,7 +12,10 @@
 #include "sound/sound_inc.cpp"
 #include "game/game_inc.cpp"
 
-G_TransitionF32 screen_filter_transition;
+struct G_BlackoutState {
+  F32 v = 1.f;
+  G_TransitionF32 tr;
+};
 
 struct GameState {
   Arena *arena;
@@ -29,6 +32,7 @@ struct GameState {
   G_ResourceContext rsrc;
   G_Level level;
   G_Input input;
+  G_BlackoutState blackout_state;
 
   M_Context *mixer;
   M_Sound *sound;
@@ -95,7 +99,7 @@ update(F32 delta_time)
     g_level_refresh_entities(&game.level);
 
     game.lost = 0;
-    r_screen_filter = 1.f;
+    game.blackout_state.v = 1.f;
   }
   else if (g_key_pressed(&game.input, G_Key_R)) {
     G_TileMap *map = game.level.map;
@@ -104,19 +108,19 @@ update(F32 delta_time)
     g_level_refresh_entities(&game.level);
 
     game.lost = 0;
-    r_screen_filter = 1.f;
+    game.blackout_state.v = 1.f;
   }
 
   if (!game.lost) {
     G_LevelSimResult sim = g_simulate_level(&game.level, &game.undo, &game.input, &game.rsrc, delta_time);
     if (sim.lost) {
-      g_transition_f32_start(&screen_filter_transition, r_screen_filter, 0.f, 0.4f, G_TransitionCurve_Linear);
+      g_transition_f32_start(&game.blackout_state.tr, game.blackout_state.v, 0.f, 0.4f, G_TransitionCurve_Linear);
       game.lost = 1;
     }
   }
 
   if (game.lost) {
-    g_transition_f32_update(&screen_filter_transition, &r_screen_filter, delta_time);
+    g_transition_f32_update(&game.blackout_state.tr, &game.blackout_state.v, delta_time);
   }
 
   m_begin_frame(game.mixer);
@@ -139,7 +143,7 @@ render(void)
   {
     g_render_level(renderer, assets, &game.level);
 
-    V4F32 col = v4f32(0.9f,0.9f,0.9f,1);
+    V4F32 col = v4f32(0.9f,0.9f,0.9f,game.blackout_state.v);
 
     F32 picaxe_bar_w = 128;
     F32 picaxe_bar_h = 16;
@@ -204,6 +208,17 @@ render(void)
     F32 loss_text_vertical_spacing = 48;
     F32 total_height = text_dim_0.y + text_dim_1.y + loss_text_vertical_spacing;
     F32 lost_text_y = (screen_height - total_height) * 0.5f;
+
+    {
+      R_Quad quad = {0};
+      V4F32 col = v4f32(0, 0, 0, 1.f-game.blackout_state.v);
+      quad.rect = rect_f32(0, 0, screen_width, screen_height);
+      quad.colors[0] = col;
+      quad.colors[1] = col;
+      quad.colors[2] = col;
+      quad.colors[3] = col;
+      r_quad(renderer, &quad, 0);
+    }
 
     if (game.lost) {
       r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);

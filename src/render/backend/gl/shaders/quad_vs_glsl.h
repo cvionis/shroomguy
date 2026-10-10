@@ -28,7 +28,6 @@ char *quad_vs_glsl =
 "out vec2     v_rect_half_dim;\n"
 "out vec2     v_pos;\n"
 "out float    v_theta;\n"
-"out vec4     v_filter_color;\n"
 "out gl_PerVertex { vec4 gl_Position; };\n"
 // Constants and uniforms
 "vec2 vertices[6] = {\n"
@@ -36,7 +35,6 @@ char *quad_vs_glsl =
 "  {+1.f, +1.f}, {-1.f, -1.f}, {+1.f, -1.f},\n"
 "};\n"
 "layout (location = 0) uniform vec2 u_res;\n"
-"layout (location = 1) uniform vec4 u_filter_color;\n"
 
 "void main()\n"
 "{\n"
@@ -81,5 +79,4 @@ char *quad_vs_glsl =
 "  v_rect_half_dim    = half_dim;\n"
 "  v_pos              = q;\n"
 "  v_theta            = a_theta;\n"
-"  v_filter_color     = u_filter_color;\n"
 "}\n";

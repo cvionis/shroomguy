@@ -7,8 +7,6 @@
 #define R_BATCH_TABLE_SLOTS 64
 #define R_CHUNK_QUADS_MAX 128
 
-global F32 r_screen_filter = 1.f;
-
 //
 // Core rendering types
 //

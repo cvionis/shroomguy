@@ -334,13 +334,6 @@ function void
 r_backend_begin_frame(void)
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  // @Note: Temporary spot
-  GLuint quad_vs = r_gl_backend->quad_vs;
-
-  F32 f = r_screen_filter;
-  V4F32 filter_color = v4f32(f, f, f, 1.f);
-
-  glProgramUniform4fv(quad_vs, 1, 1, &filter_color.e[0]);
 }
 
 function void
