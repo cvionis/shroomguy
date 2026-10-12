@@ -1343,13 +1343,107 @@ g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
   }
 }
 
+enum G_TileNeighborFlags {
+  G_TileNeighborFlags_None,
+  G_TileNeighborFlags_N = (1 << 0),
+  G_TileNeighborFlags_E = (1 << 1),
+  G_TileNeighborFlags_S = (1 << 2),
+  G_TileNeighborFlags_W = (1 << 3),
+};
+
+global String8 g_dirt_sprite_paths[16] = {
+  S8("sprites/dirt_c.png"),    // None
+  S8("sprites/dirt_n.png"),    // N
+  S8("sprites/dirt_e.png"),    // E
+  S8("sprites/dirt_ne.png"),   // N | E
+  S8("sprites/dirt_s.png"),    // S
+  S8("sprites/dirt_ns.png"),   // N | S
+  S8("sprites/dirt_es.png"),   // E | S
+  S8("sprites/dirt_nes.png"),  // N | E | S
+  S8("sprites/dirt_w.png"),    // W
+  S8("sprites/dirt_nw.png"),   // N | W
+  S8("sprites/dirt_ew.png"),   // E | W
+  S8("sprites/dirt_new.png"),  // N | E | W
+  S8("sprites/dirt_sw.png"),   // S | W
+  S8("sprites/dirt_nsw.png"),  // N | S | W
+  S8("sprites/dirt_esw.png"),  // E | S | W
+  S8("sprites/dirt_nesw.png"), // N | E | S | W
+};
+
+global String8 g_stone_t0_sprite_paths[16] = {
+  S8("sprites/stone_c.png"),
+  S8("sprites/stone_n.png"),
+  S8("sprites/stone_e.png"),
+  S8("sprites/stone_ne.png"),
+  S8("sprites/stone_s.png"),
+  S8("sprites/stone_ns.png"),
+  S8("sprites/stone_es.png"),
+  S8("sprites/stone_nes.png"),
+  S8("sprites/stone_w.png"),
+  S8("sprites/stone_nw.png"),
+  S8("sprites/stone_ew.png"),
+  S8("sprites/stone_new.png"),
+  S8("sprites/stone_sw.png"),
+  S8("sprites/stone_nsw.png"),
+  S8("sprites/stone_esw.png"),
+  S8("sprites/stone_nesw.png"),
+};
+
+global String8 g_stone_t1_sprite_paths[16] = {
+  S8("sprites/stone_c.png"),
+  S8("sprites/stone_n.png"),
+  S8("sprites/stone_e.png"),
+  S8("sprites/stone_ne.png"),
+  S8("sprites/stone_s.png"),
+  S8("sprites/stone_ns.png"),
+  S8("sprites/stone_es.png"),
+  S8("sprites/stone_nes.png"),
+  S8("sprites/stone_w.png"),
+  S8("sprites/stone_nw.png"),
+  S8("sprites/stone_ew.png"),
+  S8("sprites/stone_new.png"),
+  S8("sprites/stone_sw.png"),
+  S8("sprites/stone_nsw.png"),
+  S8("sprites/stone_esw.png"),
+  S8("sprites/stone_nesw.png"),
+};
+
+static U32
+g_get_tile_neighbor_flags(G_TileMap *map, S32 idx, U32 kind_mask)
+{
+  U32 result = 0;
+
+  S32 columns = (S32)map->width;
+  S32 rows = (S32)map->height;
+  S32 count = columns * rows;
+
+  G_TileToken tile = map->tokens[idx];
+
+  B32 at_top = (idx < columns);
+  B32 at_left = (idx % columns == 0);
+  B32 at_right = (idx % columns == columns - 1);
+  B32 at_bottom = (idx + columns >= count);
+
+  U32 w = (U32)(at_left   ? tile : map->tokens[idx - 1]);
+  U32 e = (U32)(at_right  ? tile : map->tokens[idx + 1]);
+  U32 s = (U32)(at_bottom ? tile : map->tokens[idx + columns]);
+  U32 n = (U32)(at_top    ? tile : map->tokens[idx - columns]);
+
+  if (n & kind_mask) result |= G_TileNeighborFlags_N;
+  if (e & kind_mask) result |= G_TileNeighborFlags_E;
+  if (s & kind_mask) result |= G_TileNeighborFlags_S;
+  if (w & kind_mask) result |= G_TileNeighborFlags_W;
+
+  return result;
+}
+
 function void
 g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y)
 {
   S32 map_width = map->width;
   S32 map_height = map->height;
   G_TileToken *tokens = map->tokens;
-  S32 token_count = map_width*map_height;
+  S32 token_count = map_width * map_height;
 
   F32 spr_x;
   F32 spr_y;
@@ -1364,6 +1458,14 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     g_render_sprite(renderer, sprite, spr_x, spr_y, scale, G_SpriteRenderFlags_None);
   }
 
+  U32 exposed_kinds =
+    (U32)G_TileToken_Empty |
+    (U32)G_TileToken_Player |
+    (U32)G_TileToken_EnemyGround |
+    (U32)G_TileToken_EnemyAir |
+    (U32)G_TileToken_BoulderLarge |
+    (U32)G_TileToken_BoulderLarge;
+
   // All other tiles
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
     sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
@@ -1374,26 +1476,39 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     G_TileToken token = tokens[token_idx];
     switch (token) {
       case G_TileToken_Dirt: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/dirt.png"));
+        U32 neighbors = g_get_tile_neighbor_flags(map, token_idx, exposed_kinds);
+        String8 path = g_dirt_sprite_paths[neighbors];
+        sprite = g_assets_get_sprite(assets, path);
       }break;
+
       case G_TileToken_StoneT0: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/stone_t0.png"));
+        U32 neighbors = g_get_tile_neighbor_flags(map, token_idx, exposed_kinds);
+        String8 path = g_stone_t0_sprite_paths[neighbors];
+        sprite = g_assets_get_sprite(assets, path);
       }break;
+
       case G_TileToken_StoneT1: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/stone_t1.png"));
+        U32 neighbors = g_get_tile_neighbor_flags(map, token_idx, exposed_kinds);
+        String8 path = g_stone_t1_sprite_paths[neighbors];
+        sprite = g_assets_get_sprite(assets, path);
       }break;
+
       case G_TileToken_OreT0: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t0.png"));
       }break;
+
       case G_TileToken_OreT1: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t1.png"));
       }break;
+
       case G_TileToken_OreT2: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
       }break;
+
       case G_TileToken_Ladder: {
         sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
       }break;
+
       case G_TileToken_Bedrock: {
         sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
       }break;
