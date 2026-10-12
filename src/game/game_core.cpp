@@ -1167,26 +1167,31 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   if (dx || dy) {
     g_undo_push(undo, map, &rsrc->state);
 
+    G_HorizontalDirection direction = player->direction;
     if (dx > 0) {
-      player->direction = G_HorizontalDirection_Right;
+      direction = G_HorizontalDirection_Right;
     }
     else if (dx < 0){
-      player->direction = G_HorizontalDirection_Left;
+      direction = G_HorizontalDirection_Left;
     }
+    B32 should_move = (direction == player->direction);
+    player->direction = direction;
 
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
-    G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
+    if (should_move) {
+      G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
 
-    G_EntityMineResult mine_result = g_entity_mine(player, level, rsrc, dx, dy);
-    U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
-    if (mine_result.mined) {
-      // Move to the mined tile if there is not an entity sitting on the mined tile.
-      G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
-      G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-      G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
-      G_Entity *d = g_rsrc_tile_from_tilemap_idx(level, above_mined_tile_idx);
-      if (!(a || b || c || d)) {
-        g_entity_move(player, level, dx, dy, tr);
+      G_EntityMineResult mine_result = g_entity_mine(player, level, rsrc, dx, dy);
+      U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
+      if (mine_result.mined) {
+        // Move to the mined tile if there is not an entity sitting on the mined tile.
+        G_Entity *a = g_ground_enemy_from_tilemap_idx(level, above_mined_tile_idx);
+        G_Entity *b = g_small_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+        G_Entity *c = g_large_boulder_from_tilemap_idx(level, above_mined_tile_idx);
+        G_Entity *d = g_rsrc_tile_from_tilemap_idx(level, above_mined_tile_idx);
+        if (!(a || b || c || d)) {
+          g_entity_move(player, level, dx, dy, tr);
+        }
       }
     }
   }
