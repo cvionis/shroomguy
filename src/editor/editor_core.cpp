@@ -722,7 +722,7 @@ ed_map_ctrl_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *ma
     spr_x = base_x + scale * (token_idx % map_width);
     spr_y = base_y + scale * (token_idx / map_width);
 
-    g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
+    g_render_sprite(renderer, sprite, spr_x, spr_y, scale, G_SpriteRenderFlags_None);
   }
 
   // All other tiles

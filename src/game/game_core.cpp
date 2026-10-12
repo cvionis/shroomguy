@@ -1167,6 +1167,13 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
   if (dx || dy) {
     g_undo_push(undo, map, &rsrc->state);
 
+    if (dx > 0) {
+      player->direction = G_HorizontalDirection_Right;
+    }
+    else if (dx < 0){
+      player->direction = G_HorizontalDirection_Left;
+    }
+
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
 
@@ -1286,13 +1293,20 @@ g_large_boulder_from_tilemap_idx(G_Level *level, U32 idx)
 //
 
 function void
-g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale)
+g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale, U32 flags)
 {
   if (sprite) {
     R_Quad quad = {0};
 
     quad.rect = {x, y, x + scale, y + scale};
     quad.uv_rect = sprite->uv_rect;
+
+    // @Todo: Implement FlipY
+    if (flags & (U32)G_SpriteRenderFlags_FlipX) {
+      F32 tmp = quad.uv_rect.x1;
+      quad.uv_rect.x1 = quad.uv_rect.x0;
+      quad.uv_rect.x0 = tmp;
+    }
 
     V4F32 col = v4f32(1,1,1,1);
     quad.colors[0] = col;
@@ -1324,7 +1338,7 @@ g_render_lava(R_Context *renderer, G_AssetContext *assets, G_TileMap *map)
 
     G_TileToken token = tokens[token_idx];
     if (token & G_TileToken_Lava) {
-      g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
+      g_render_sprite(renderer, sprite, spr_x, spr_y, scale, G_SpriteRenderFlags_None);
     }
   }
 }
@@ -1347,7 +1361,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     spr_x = x + scale * (token_idx % map_width);
     spr_y = y + scale * (token_idx / map_width);
 
-    g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
+    g_render_sprite(renderer, sprite, spr_x, spr_y, scale, G_SpriteRenderFlags_None);
   }
 
   // All other tiles
@@ -1389,7 +1403,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
       sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
     }
 
-    g_render_sprite(renderer, sprite, spr_x, spr_y, scale);
+    g_render_sprite(renderer, sprite, spr_x, spr_y, scale, G_SpriteRenderFlags_None);
   }
 }
 
@@ -1415,11 +1429,16 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 
   {
     G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
+
     G_Entity *player = &level->player;
     F32 scaled_spr_x = base_x + (scale * player->pos.x);
     F32 scaled_spr_y = base_y + (scale * player->pos.y);
 
-    g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+    U32 flags = 0;
+    if (player->direction == G_HorizontalDirection_Left) {
+      flags |= (U32)G_SpriteRenderFlags_FlipX;
+    }
+    g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, flags);
   }
 
   // Air enemies
@@ -1435,7 +1454,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
         F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
         F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
 
-        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
     }
   }
@@ -1451,7 +1470,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       if (enemy->health > 0) {
         F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
         F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
-        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
     }
   }
@@ -1467,7 +1486,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       G_Entity *boulder = &small_boulders[boulder_idx];
       F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
       F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
-      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
     }
   }
 
@@ -1482,7 +1501,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       G_Entity *boulder = &large_boulders[boulder_idx];
       F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
       F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
-      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+      g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
     }
   }
 
@@ -1498,7 +1517,7 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       if (rsrc_tile->health > 0) {
         F32 scaled_spr_x = base_x + (scale * rsrc_tile->pos.x);
         F32 scaled_spr_y = base_y + (scale * rsrc_tile->pos.y);
-        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale);
+        g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
     }
   }

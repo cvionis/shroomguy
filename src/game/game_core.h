@@ -150,8 +150,14 @@ struct G_TileMap {
 // Entities
 //
 
+enum G_HorizontalDirection {
+  G_HorizontalDirection_Right,
+  G_HorizontalDirection_Left,
+};
+
 struct G_Entity {
   V2F32 pos; // @Note: Unscaled
+  G_HorizontalDirection direction;
   G_TransitionV2F32 move;
   U32 tilemap_idx;
   S32 health;
@@ -260,6 +266,16 @@ struct G_UndoContext {
 };
 
 //
+// Sprite Rendering
+//
+
+enum G_SpriteRenderFlags {
+  G_SpriteRenderFlags_None,
+  G_SpriteRenderFlags_FlipX = (1 << 0),
+  G_SpriteRenderFlags_FlipY = (1 << 1),
+};
+
+//
 // Map storage and serialization
 //
 
@@ -337,7 +353,7 @@ function G_Entity *g_air_enemy_from_tilemap_idx(G_Level *level, U32 idx);
 function G_Entity *g_rsrc_tile_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
-function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale);
+function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale, U32 flags);
 function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y);
 
 function void g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level);

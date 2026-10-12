@@ -31,6 +31,12 @@ char *quad_fs_glsl =
 
 "void main()\n"
 "{\n"
+"  vec4 uv_rect = v_uv_rect;\n"
+#if 0
+"  float tmp = uv_rect.z;\n"
+"  uv_rect.z = uv_rect.x;\n"
+"  uv_rect.x = tmp;\n"
+#endif
 // Discard fragments outside the clipping rectangle
 "  vec4 cl = v_clip_rect;\n"
 "  if (cl != vec4(0.0)) {\n"
@@ -51,13 +57,13 @@ char *quad_fs_glsl =
 "  float uv_ytu = (q.y + v_rect_half_dim.y)/(2.*v_rect_half_dim.y);\n"
 // Get UV coords for this fragment from the current quad's UV rect ([0, 1] in x, y)
 "  vec4 color = vec4(1.0);\n"
-"  if (v_uv_rect.z > 0.0) {\n"
+"  if (max(uv_rect.x, uv_rect.z) > 0.0) {\n"
 "    ivec2 tex_size = textureSize(u_tex, 0);\n"
 "    vec2 htex = vec2(0.5/tex_size.x, 0.5/tex_size.y);\n"
-"    float uv_xu = v_uv_rect.x + (v_uv_rect.z - v_uv_rect.x) * uv_xtu;\n"
-"    float uv_yu = v_uv_rect.y + (v_uv_rect.w - v_uv_rect.y) * uv_ytu;\n"
-"    float uv_x = clamp(uv_xu, v_uv_rect.x + htex.x, v_uv_rect.z - htex.x);\n"
-"    float uv_y = clamp(uv_yu, v_uv_rect.y + htex.y, v_uv_rect.w - htex.y);\n"
+"    float uv_xu = uv_rect.x + (uv_rect.z - uv_rect.x) * uv_xtu;\n"
+"    float uv_yu = uv_rect.y + (uv_rect.w - uv_rect.y) * uv_ytu;\n"
+"    float uv_x = clamp(uv_xu, min(uv_rect.x, uv_rect.z) + htex.x, max(uv_rect.x, uv_rect.z) - htex.x);\n"
+"    float uv_y = clamp(uv_yu, uv_rect.y + htex.y, uv_rect.w - htex.y);\n"
 "    vec2 uv = vec2(uv_x, uv_y);\n"
 // Sample from the texture according to the quad's sample mode
 "    if (v_sample_mode == R_SAMPLE_MODE_COLOR) {\n"
