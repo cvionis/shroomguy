@@ -1422,17 +1422,15 @@ g_get_tile_neighbor_flags(G_TileMap *map, S32 idx, U32 kind_mask)
   S32 rows = (S32)map->height;
   S32 count = columns * rows;
 
-  G_TileToken tile = map->tokens[idx];
-
   B32 at_top = (idx < columns);
   B32 at_left = (idx % columns == 0);
   B32 at_right = (idx % columns == columns - 1);
   B32 at_bottom = (idx + columns >= count);
 
-  U32 w = (U32)(at_left   ? tile : map->tokens[idx - 1]);
-  U32 e = (U32)(at_right  ? tile : map->tokens[idx + 1]);
-  U32 s = (U32)(at_bottom ? tile : map->tokens[idx + columns]);
-  U32 n = (U32)(at_top    ? tile : map->tokens[idx - columns]);
+  U32 w = (U32)(at_left   ? 0 : map->tokens[idx - 1]);
+  U32 e = (U32)(at_right  ? 0 : map->tokens[idx + 1]);
+  U32 s = (U32)(at_bottom ? 0 : map->tokens[idx + columns]);
+  U32 n = (U32)(at_top    ? 0 : map->tokens[idx - columns]);
 
   if (n & kind_mask) result |= G_TileNeighborFlags_N;
   if (e & kind_mask) result |= G_TileNeighborFlags_E;
@@ -1469,7 +1467,9 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     (U32)G_TileToken_EnemyGround |
     (U32)G_TileToken_EnemyAir |
     (U32)G_TileToken_BoulderLarge |
-    (U32)G_TileToken_BoulderLarge;
+    (U32)G_TileToken_BoulderLarge |
+    (U32)G_TileToken_Resource |
+    (U32)G_TileToken_Ladder;
 
   // All other tiles
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
@@ -1515,8 +1515,46 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
       }break;
 
       case G_TileToken_Bedrock: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
+        U32 filter = 0;
+        U32 neighbors = 0;
+
+        // Edges
+        filter = G_TileToken_All & ~G_TileToken_Bedrock;
+        neighbors = g_get_tile_neighbor_flags(map, token_idx, filter);
+
+        if (neighbors & G_TileNeighborFlags_W) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_ve.png"));
+        }
+        else if (neighbors & G_TileNeighborFlags_E) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_vw.png"));
+        }
+        else if (neighbors & G_TileNeighborFlags_N) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_hs.png"));
+        }
+        else if (neighbors & G_TileNeighborFlags_S) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_hn.png"));
+        }
+
+        // Corners
+        filter = G_TileToken_Bedrock;
+        neighbors = g_get_tile_neighbor_flags(map, token_idx, filter);
+
+        if ((neighbors & G_TileNeighborFlags_N) && (neighbors & G_TileNeighborFlags_W)) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_cse.png"));
+        }
+        else if ((neighbors & G_TileNeighborFlags_N) && (neighbors & G_TileNeighborFlags_E)) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_csw.png"));
+        }
+        else if ((neighbors & G_TileNeighborFlags_S) && (neighbors & G_TileNeighborFlags_W)) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_cne.png"));
+        }
+        else if ((neighbors & G_TileNeighborFlags_S) && (neighbors & G_TileNeighborFlags_E)) {
+          sprite = g_assets_get_sprite(assets, S8("sprites/border_cnw.png"));
+        }
+
       }break;
+
+
     }
 
     if (token & G_TileToken_Ladder) {
