@@ -1466,7 +1466,7 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     (U32)G_TileToken_Player |
     (U32)G_TileToken_EnemyGround |
     (U32)G_TileToken_EnemyAir |
-    (U32)G_TileToken_BoulderLarge |
+    (U32)G_TileToken_BoulderSmall |
     (U32)G_TileToken_BoulderLarge |
     (U32)G_TileToken_Resource |
     (U32)G_TileToken_Ladder;

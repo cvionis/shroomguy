@@ -12,6 +12,30 @@
 #include "sound/sound_inc.cpp"
 #include "game/game_inc.cpp"
 
+// @Note: Level select menu (i.e. offsets) should be edited in editor
+
+/*
+
+  - Each level gets its own level select menu offset; either relative to previous level or relative to top left corner
+    of the screen. This offset can be edited in the editor.
+
+  - A tunnel should run between each sequential completed level. As a level's offsets in the level select screen will
+    probably be adjusted frequently, this tunnel's path should be calculated automatically using a shortest path algorithm or
+    something along those lines, while avoiding diagonals. This can be done in the game's code rather than the editor.
+
+  - Tunneling algorithm can't connect arbitrary tiles on two levels. So in the editor you must also assign a tunnel enter amd
+    tuunnel exit tile for each level.
+
+  - When the player wants to go from a level to level select and vice versa, just fade to black.
+ */
+
+enum G_Mode {
+  G_Mode_PlayLevel,
+  G_Mode_SelectLevel,
+  G_Mode_Menu,
+  G_Mode_Pause
+};
+
 struct G_BlackoutState {
   F32 v = 1.f;
   G_TransitionF32 tr;
