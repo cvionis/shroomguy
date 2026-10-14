@@ -144,7 +144,7 @@ enum G_TileMapFlags {
 struct G_TileMap {
   U32 width;
   U32 height;
-  V2F32 level_select_offset; // Unit: tiles; relative to previous level
+  V2F32 level_select_offset; // Unit: tiles; absolute
   G_TileMapFlags flags;
   G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
 };

@@ -124,7 +124,6 @@ ed_update_mode_level(AppState *app, G_Input *input, F32 delta_time)
 
   g_transition_f32_update(&choice_ctrl->base_x_transition, &choice_ctrl->base_x, delta_time);
   g_transition_f32_update(&resize_ctrl->base_x_transition, &resize_ctrl->base_x, delta_time);
-  g_transition_f32_update(&app->save_text_tr, &app->save_text_a, delta_time);
 }
 
 static void
@@ -141,24 +140,22 @@ ed_update_mode_level_select(AppState *app, G_Input *input, F32 delta_time)
     (F32)input->mouse.y
   };
 
+  if (g_key_pressed(input, G_Key_F12)) {
+    g_maps_write(&app->maps, ED_DEFAULT_MAPS_PATH);
+
+    app->save_text_a = 1;
+    g_transition_f32_start(&app->save_text_tr, 1, 0, 0.05f, G_TransitionCurve_QuinticEaseInOut);
+  }
+
   // Begin dragging
   if (g_mouse_pressed(input, G_MouseButton_Left)) {
     app->dragging_map_idx = -1;
 
-    for (S32 map_idx = map_count - 1; map_idx >= 0; map_idx -= 1) {
+    for (S32 map_idx = 0; map_idx < map_count; map_idx += 1) {
       G_TileMap *map = &maps[map_idx];
 
-      F32 xp = 0;
-      F32 yp = 0;
-
-      if (map_idx > 0) {
-        G_TileMap *prev_map = &maps[map_idx - 1];
-        xp = prev_map->level_select_offset.x;
-        yp = prev_map->level_select_offset.y;
-      }
-
-      F32 x0 = scale * (xp + map->level_select_offset.x);
-      F32 y0 = scale * (yp + map->level_select_offset.y);
+      F32 x0 = scale * map->level_select_offset.x;
+      F32 y0 = scale *  map->level_select_offset.y;
       F32 x1 = x0 + scale * map->width;
       F32 y1 = y0 + scale * map->height;
 
@@ -171,7 +168,6 @@ ed_update_mode_level_select(AppState *app, G_Input *input, F32 delta_time)
     }
   }
 
-  // Update dragging.
   if (app->dragging_map_idx >= 0) {
     if (g_mouse_down(input, G_MouseButton_Left)) {
       G_TileMap *map = &maps[app->dragging_map_idx];
@@ -187,8 +183,6 @@ ed_update_mode_level_select(AppState *app, G_Input *input, F32 delta_time)
     }
   }
 }
-
-
 
 static void
 ed_render_mode_level(AppState *app, R_Context *renderer, G_AssetContext *assets)
@@ -228,21 +222,24 @@ ed_render_mode_level_select(AppState *app, R_Context *renderer, G_AssetContext *
   for (S32 map_idx = 0; map_idx < map_count; map_idx += 1) {
     G_TileMap *map = &maps[map_idx];
 
-    F32 xp = 0;
-    F32 yp = 0;
-    if (map_idx > 0) {
-      G_TileMap *prev_map = &maps[map_idx-1];
-      xp = prev_map->level_select_offset.x;
-      yp = prev_map->level_select_offset.y;
-    }
+    F32 x = scale * map->level_select_offset.x;
+    F32 y = scale * map->level_select_offset.y;
 
-    F32 xc = scale * (xp + map->level_select_offset.x);
-    F32 yc = scale * (yp + map->level_select_offset.y);
+    F32 x_center = x + (scale * map->width) * 0.5f;
 
     G_Level level = g_level_from_tilemap(map);
     level.map = map;
-    g_render_level(renderer, assets, &level, xc, yc, scale);
+    g_render_level(renderer, assets, &level, x, y, scale);
+
+    TempArena tmp = arena_temp_begin(app->arena);
+    {
+      String8 str = str8_pushf(tmp.arena, "%d", map_idx);
+      r_text(renderer, str, app->font, 24, v2f32(x_center, y - 40), v4f32(1,1,1,1), 0);
+    }
+    arena_temp_end(tmp);
   }
+
+  r_text(renderer, S8("SAVED"), app->font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,app->save_text_a), 0);
 }
 
 function void
@@ -273,6 +270,8 @@ update(AppState *app)
       ed_update_mode_level_select(app, input, delta_time);
     }break;
   }
+
+  g_transition_f32_update(&app->save_text_tr, &app->save_text_a, delta_time);
 }
 
 function void
@@ -298,17 +297,16 @@ render(AppState *app)
 
   TempArena tmp = arena_temp_begin(app->arena);
 
+  #if 0
   String8 str = str8_pushf(tmp.arena, "Mouse: (%d, %d)", app->input.mouse.x, app->input.mouse.y);
   r_text(renderer, str, app->font, 24, v2f32(20, 500), v4f32(1,1,1,1), 0);
-
   str = str8_pushf(tmp.arena, "Selected Map: %d", app->dragging_map_idx);
   r_text(renderer, str, app->font, 24, v2f32(20, 540), v4f32(1,1,1,1), 0);
-
   str = str8_pushf(tmp.arena, "Mouse Down: %d", g_mouse_down(&app->input, G_MouseButton_Left));
   r_text(renderer, str, app->font, 24, v2f32(20, 580), v4f32(1,1,1,1), 0);
-
   str = str8_pushf(tmp.arena, "Drag Mouse Start: (%.1f,. %.1f)", app->drag_mouse_start.x, app->drag_mouse_start.y);
   r_text(renderer, str, app->font, 24, v2f32(20, 620), v4f32(1,1,1,1), 0);
+  #endif
 
 
   arena_temp_end(tmp);
@@ -364,8 +362,8 @@ entry_point(void)
 
   #if 0
   app.maps.maps[0].level_select_offset = v2f32(20, 20);
-  app.maps.maps[1].level_select_offset = v2f32(20, 10);
-  app.maps.maps[2].level_select_offset = v2f32(20, -10);
+  app.maps.maps[1].level_select_offset = v2f32(30, 30);
+  app.maps.maps[2].level_select_offset = v2f32(40, 40);
   g_maps_write(&app.maps, ED_DEFAULT_MAPS_PATH);
   os_exit_process(0);
   #endif
