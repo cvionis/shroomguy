@@ -74,6 +74,7 @@ struct G_Input {
     S32 x;
     S32 y;
     B32 buttons[G_MouseButton_COUNT];
+    B32 prev_buttons[G_MouseButton_COUNT];
   }mouse;
 };
 
@@ -143,6 +144,7 @@ enum G_TileMapFlags {
 struct G_TileMap {
   U32 width;
   U32 height;
+  V2F32 level_select_offset; // Unit: tiles; relative to previous level
   G_TileMapFlags flags;
   G_TileToken tokens[G_TILEMAP_TOKENS_MAX];
 };
@@ -355,6 +357,6 @@ function G_Entity *g_rsrc_tile_from_tilemap_idx(G_Level *level, U32 idx);
 
 // Rendering
 function void g_render_sprite(R_Context *renderer, G_Sprite *sprite, F32 x, F32 y, F32 scale, U32 flags);
-function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y);
+function void g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y, F32 scale);
 
-function void g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level);
+function void g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level, F32 x, F32 y, F32 scale);

@@ -23,8 +23,8 @@
     probably be adjusted frequently, this tunnel's path should be calculated automatically using a shortest path algorithm or
     something along those lines, while avoiding diagonals. This can be done in the game's code rather than the editor.
 
-  - Tunneling algorithm can't connect arbitrary tiles on two levels. So in the editor you must also assign a tunnel enter amd
-    tuunnel exit tile for each level.
+  - Tunneling algorithm can't connect arbitrary tiles on two levels. Gonna choose to just have them all connect in their vertical
+    center.
 
   - When the player wants to go from a level to level select and vice versa, just fade to black.
  */
@@ -165,9 +165,22 @@ render(void)
   r_begin_frame(renderer);
 
   {
-    g_render_level(renderer, assets, &game.level);
+    F32 scale = 64;
+    F32 screen_width  = 1264.f;
+    F32 screen_height = 681.f;
 
-    V4F32 col = v4f32(0.9f,0.9f,0.9f,game.blackout_state.v);
+    F32 tile_size = scale;
+    F32 tiles_x = (F32)game.level.map->width;
+    F32 tiles_y = (F32)game.level.map->height;
+
+    F32 total_width  = tiles_x * tile_size;
+    F32 total_height = tiles_y * tile_size;
+
+    F32 base_x = (screen_width - total_width) * 0.5f;
+    F32 base_y = (screen_height - total_height) * 0.5f;
+    g_render_level(renderer, assets, &game.level, base_x, base_y, scale);
+
+    V4F32 col = v4f32(0.9f,0.9f,0.9f, game.blackout_state.v);
 
     F32 picaxe_bar_w = 128;
     F32 picaxe_bar_h = 16;
@@ -215,9 +228,6 @@ render(void)
 
     R_Font *font = game.font;
 
-    F32 screen_width = 1264.f;
-    F32 screen_height = 681.f;
-
     F32 loss_font_size = 32;
     V4F32 loss_text_col = v4f32(0.95f, 0.95f, 0.95f, 1.f);
 
@@ -230,8 +240,8 @@ render(void)
     F32 x1 = (screen_width  - text_dim_1.x) * 0.5f;
 
     F32 loss_text_vertical_spacing = 48;
-    F32 total_height = text_dim_0.y + text_dim_1.y + loss_text_vertical_spacing;
-    F32 lost_text_y = (screen_height - total_height) * 0.5f;
+    F32 total_text_height = text_dim_0.y + text_dim_1.y + loss_text_vertical_spacing;
+    F32 lost_text_y = (screen_height - total_text_height) * 0.5f;
 
     {
       R_Quad quad = {0};

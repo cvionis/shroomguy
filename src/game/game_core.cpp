@@ -16,6 +16,10 @@ global G_CrushTarget g_target = {};
 function void
 g_get_input(OS_Handle window, G_Input *input, OS_EventList *events)
 {
+  for (S32 i = 0; i < G_MouseButton_COUNT; i += 1) {
+    input->mouse.prev_buttons[i] = input->mouse.buttons[i];
+  }
+
   for (OS_Event *e = events->first; e != 0; e = e->next) {
     G_Key slot = G_Key_Null;
     G_MouseButton mouse_slot = G_MouseButton_Null;
@@ -96,9 +100,7 @@ g_key_down(G_Input *input, G_Key key)
 function B32
 g_mouse_pressed(G_Input *input, G_MouseButton btn)
 {
-  B32 result = input->mouse.buttons[btn];
-  input->mouse.buttons[btn] = 0;
-  return result;
+  return (input->mouse.buttons[btn] && !input->mouse.prev_buttons[btn]);
 }
 
 function B32
@@ -1441,7 +1443,7 @@ g_get_tile_neighbor_flags(G_TileMap *map, S32 idx, U32 kind_mask)
 }
 
 function void
-g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y)
+g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F32 x, F32 y, F32 scale)
 {
   S32 map_width = map->width;
   S32 map_height = map->height;
@@ -1450,7 +1452,6 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
 
   F32 spr_x;
   F32 spr_y;
-  F32 scale = 64; // @Note: Temporary
   G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
 
   // Background tiles
@@ -1566,31 +1567,17 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
 }
 
 function void
-g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
+g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level, F32 x, F32 y, F32 scale)
 {
-  F32 scale = 64; // @Note: Temporary
 
-  F32 screen_width  = 1264.f;
-  F32 screen_height = 681.f;
-
-  F32 tile_size = 64.f;
-  F32 tiles_x = (F32)level->map->width;
-  F32 tiles_y = (F32)level->map->height;
-
-  F32 total_width  = tiles_x * tile_size;
-  F32 total_height = tiles_y * tile_size;
-
-  F32 base_x = (screen_width - total_width) * 0.5f;
-  F32 base_y = (screen_height - total_height) * 0.5f;
-
-  g_render_tilemap(renderer, assets, level->map, base_x, base_y);
+  g_render_tilemap(renderer, assets, level->map, x, y, scale);
 
   {
     G_Sprite *sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
 
     G_Entity *player = &level->player;
-    F32 scaled_spr_x = base_x + (scale * player->pos.x);
-    F32 scaled_spr_y = base_y + (scale * player->pos.y);
+    F32 scaled_spr_x = x + (scale * player->pos.x);
+    F32 scaled_spr_y = y + (scale * player->pos.y);
 
     U32 flags = 0;
     if (player->direction == G_HorizontalDirection_Left) {
@@ -1609,8 +1596,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
       G_Entity *enemy = &air_enemies[enemy_idx];
 
       if (enemy->health > 0) {
-        F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
-        F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
+        F32 scaled_spr_x = x + (scale * enemy->pos.x);
+        F32 scaled_spr_y = y + (scale * enemy->pos.y);
 
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
@@ -1626,8 +1613,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 enemy_idx = 0; enemy_idx < ground_enemies_count; enemy_idx += 1) {
       G_Entity *enemy = &ground_enemies[enemy_idx];
       if (enemy->health > 0) {
-        F32 scaled_spr_x = base_x + (scale * enemy->pos.x);
-        F32 scaled_spr_y = base_y + (scale * enemy->pos.y);
+        F32 scaled_spr_x = x + (scale * enemy->pos.x);
+        F32 scaled_spr_y = y + (scale * enemy->pos.y);
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
     }
@@ -1642,8 +1629,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 
     for (U32 boulder_idx = 0; boulder_idx < small_boulders_count; boulder_idx += 1) {
       G_Entity *boulder = &small_boulders[boulder_idx];
-      F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
-      F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
+      F32 scaled_spr_x = x + (scale * boulder->pos.x);
+      F32 scaled_spr_y = y + (scale * boulder->pos.y);
       g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
     }
   }
@@ -1657,8 +1644,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
 
     for (U32 boulder_idx = 0; boulder_idx < large_boulders_count; boulder_idx += 1) {
       G_Entity *boulder = &large_boulders[boulder_idx];
-      F32 scaled_spr_x = base_x + (scale * boulder->pos.x);
-      F32 scaled_spr_y = base_y + (scale * boulder->pos.y);
+      F32 scaled_spr_x = x + (scale * boulder->pos.x);
+      F32 scaled_spr_y = y + (scale * boulder->pos.y);
       g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
     }
   }
@@ -1673,8 +1660,8 @@ g_render_level(R_Context *renderer, G_AssetContext *assets, G_Level *level)
     for (U32 rsrc_tile_idx = 0; rsrc_tile_idx < rsrc_tiles_count; rsrc_tile_idx += 1) {
       G_Entity *rsrc_tile = &rsrc_tiles[rsrc_tile_idx];
       if (rsrc_tile->health > 0) {
-        F32 scaled_spr_x = base_x + (scale * rsrc_tile->pos.x);
-        F32 scaled_spr_y = base_y + (scale * rsrc_tile->pos.y);
+        F32 scaled_spr_x = x + (scale * rsrc_tile->pos.x);
+        F32 scaled_spr_y = y + (scale * rsrc_tile->pos.y);
         g_render_sprite(renderer, sprite, scaled_spr_x, scaled_spr_y, scale, G_SpriteRenderFlags_None);
       }
     }
@@ -1735,6 +1722,9 @@ g_maps_read(String8 path)
         MemoryCopy(&map->flags, pos, sizeof(map->flags));
         pos += sizeof(map->flags);
 
+        MemoryCopy(&map->level_select_offset, pos, sizeof(map->level_select_offset));
+        pos += sizeof(map->level_select_offset);
+
         U32 tokens_size = map->width*map->height*sizeof(G_TileToken);
         MemoryCopy(map->tokens, pos, tokens_size);
         pos += tokens_size;
@@ -1766,6 +1756,7 @@ g_maps_write(G_MapStorage *maps, String8 path)
       fwrite(&width, sizeof(width), 1, f);
       fwrite(&height, sizeof(height), 1, f);
       fwrite(&map->flags, sizeof(map->flags), 1, f);
+      fwrite(&map->level_select_offset, sizeof(map->level_select_offset), 1, f);
 
       U32 tokens_size = width*height*sizeof(G_TileToken);
       fwrite(map->tokens, tokens_size, 1, f);

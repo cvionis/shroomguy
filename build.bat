@@ -68,9 +68,9 @@ pushd %root%\build
 cl.exe %compiler_flags% %includes% %targets% %linker_flags%
 
 :: --- Compile and link the editor ----------------------------------------
-:: set editor_flags=/Fe:editor.exe /nologo /FC /Zi /diagnostics:caret /std:c++17
-:: set editor_flags=%editor_flags% %cl_optimize_flags% %cl_build_flags%
-:: cl.exe %editor_flags% %includes% %root%\src\editor_main.cpp %linker_flags%
+set editor_flags=/Fe:editor.exe /nologo /FC /Zi /diagnostics:caret /std:c++17
+set editor_flags=%editor_flags% %cl_optimize_flags% %cl_build_flags%
+cl.exe %editor_flags% %includes% %root%\src\editor_main.cpp %linker_flags%
 popd
 
 :: --- Unset variables ----------------------------------------------------

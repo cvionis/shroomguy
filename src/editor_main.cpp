@@ -14,6 +14,11 @@
 #include "game/game_inc.cpp"
 #include "editor/editor_inc.cpp"
 
+enum ED_Mode {
+  ED_Mode_Level,
+  ED_Mode_LevelSelect,
+};
+
 struct AppState {
   B32 quit;
 
@@ -26,11 +31,16 @@ struct AppState {
   G_AssetContext *assets;
   G_MapStorage maps;
 
+  ED_Mode mode;
   ED_ChoiceControl choice_ctrl;
   ED_ResizeControl resize_ctrl;
   ED_MapControl map_ctrl;
 
   ED_UndoContext undo;
+
+  S32 dragging_map_idx = -1;
+  V2F32 drag_mouse_start;
+  V2F32 drag_offset_start;
 
   F32 save_text_a;
   G_TransitionF32 save_text_tr;
@@ -38,23 +48,10 @@ struct AppState {
   B32 ctrl_toggle = 1;
 };
 
-function void
-update(AppState *app)
+
+static void
+ed_update_mode_level(AppState *app, G_Input *input, F32 delta_time)
 {
-  OS_Handle window = app->window;
-  G_Input *input = &app->input;
-
-  static F32 delta_time = 0.0167f; // @Note: Temporary.
-
-  OS_EventList *events = os_get_events();
-  for (OS_Event *e = events->first; e != 0; e = e->next) {
-    if (e->kind == OS_EventKind_WindowClose) {
-      app->quit = 1;
-    }
-  }
-
-  g_get_input(window, input, events);
-
   ed_map_ctrl_update(&app->map_ctrl, &app->choice_ctrl, &app->maps, &app->undo, input);
   ed_choice_ctrl_update(&app->choice_ctrl, input);
   ed_resize_ctrl_update(&app->resize_ctrl, &app->map_ctrl, &app->maps, &app->undo, input);
@@ -130,20 +127,75 @@ update(AppState *app)
   g_transition_f32_update(&app->save_text_tr, &app->save_text_a, delta_time);
 }
 
-function void
-render(AppState *app)
+static void
+ed_update_mode_level_select(AppState *app, G_Input *input, F32 delta_time)
 {
-  OS_Handle window = app->window;
-  R_Context *renderer = app->renderer;
+  G_MapStorage *storage = &app->maps;
+  S32 map_count = 3;
+  G_TileMap *maps = storage->maps;
+
+  F32 scale = 16;
+
+  V2F32 mouse = {
+    (F32)input->mouse.x,
+    (F32)input->mouse.y
+  };
+
+  // Begin dragging
+  if (g_mouse_pressed(input, G_MouseButton_Left)) {
+    app->dragging_map_idx = -1;
+
+    for (S32 map_idx = map_count - 1; map_idx >= 0; map_idx -= 1) {
+      G_TileMap *map = &maps[map_idx];
+
+      F32 xp = 0;
+      F32 yp = 0;
+
+      if (map_idx > 0) {
+        G_TileMap *prev_map = &maps[map_idx - 1];
+        xp = prev_map->level_select_offset.x;
+        yp = prev_map->level_select_offset.y;
+      }
+
+      F32 x0 = scale * (xp + map->level_select_offset.x);
+      F32 y0 = scale * (yp + map->level_select_offset.y);
+      F32 x1 = x0 + scale * map->width;
+      F32 y1 = y0 + scale * map->height;
+
+      if (mouse.x >= x0 && mouse.x < x1 && mouse.y >= y0 && mouse.y < y1) {
+        app->dragging_map_idx = map_idx;
+        app->drag_mouse_start = mouse;
+        app->drag_offset_start = map->level_select_offset;
+        break;
+      }
+    }
+  }
+
+  // Update dragging.
+  if (app->dragging_map_idx >= 0) {
+    if (g_mouse_down(input, G_MouseButton_Left)) {
+      G_TileMap *map = &maps[app->dragging_map_idx];
+
+      F32 dx = (mouse.x - app->drag_mouse_start.x) / scale;
+      F32 dy = (mouse.y - app->drag_mouse_start.y) / scale;
+
+      map->level_select_offset.x = app->drag_offset_start.x + dx;
+      map->level_select_offset.y = app->drag_offset_start.y + dy;
+    }
+    else {
+      app->dragging_map_idx = -1;
+    }
+  }
+}
+
+
+
+static void
+ed_render_mode_level(AppState *app, R_Context *renderer, G_AssetContext *assets)
+{
   R_Font *font = app->font;
-  G_AssetContext *assets = app->assets;
 
-  r_set_clear_color(v4f32(0,0,0,1));
-  r_set_viewport(os_window_client_rect(window));
-  r_begin_frame(renderer);
-
-  // @Todo: Why even pass an arena to choice_ctrl_render? Just use a scratch
-  // arena inside the function.
+  // @Todo: Why even pass an arena to choice_ctrl_render? Just use a scratch arena inside the function.
   TempArena tmp = arena_temp_begin(app->arena);
 
   ed_choice_ctrl_render(tmp.arena, renderer, font, assets, &app->choice_ctrl);
@@ -157,11 +209,107 @@ render(AppState *app)
   V4F32 text_color = v4f32(0.4f,0.4f,0.4f,1.f);
 
   r_text(renderer, ED_DEFAULT_MAPS_PATH, font, 24, v2f32(16,8), text_color, 0);
-
   String8 current_map_idx_str = str8_pushf(tmp.arena, "Current map: %d", app->map_ctrl.current_map_idx);
   r_text(renderer, current_map_idx_str, font, 20, v2f32(16,32), v4f32_scale(text_color,0.88f), 0);
-
   r_text(renderer, S8("SAVED"), font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,app->save_text_a), 0);
+
+  arena_temp_end(tmp);
+}
+
+static void
+ed_render_mode_level_select(AppState *app, R_Context *renderer, G_AssetContext *assets)
+{
+  G_MapStorage *storage = &app->maps;
+  S32 map_count = 3; //(S32)storage->count; // @Note: Temporary // @Todo: Need to track actual count
+  G_TileMap *maps = storage->maps;
+
+  F32 scale = 16;
+
+  for (S32 map_idx = 0; map_idx < map_count; map_idx += 1) {
+    G_TileMap *map = &maps[map_idx];
+
+    F32 xp = 0;
+    F32 yp = 0;
+    if (map_idx > 0) {
+      G_TileMap *prev_map = &maps[map_idx-1];
+      xp = prev_map->level_select_offset.x;
+      yp = prev_map->level_select_offset.y;
+    }
+
+    F32 xc = scale * (xp + map->level_select_offset.x);
+    F32 yc = scale * (yp + map->level_select_offset.y);
+
+    G_Level level = g_level_from_tilemap(map);
+    level.map = map;
+    g_render_level(renderer, assets, &level, xc, yc, scale);
+  }
+}
+
+function void
+update(AppState *app)
+{
+  OS_Handle window = app->window;
+  G_Input *input = &app->input;
+
+  static F32 delta_time = 0.0167f; // @Note: Temporary.
+
+  OS_EventList *events = os_get_events();
+  for (OS_Event *e = events->first; e != 0; e = e->next) {
+    if (e->kind == OS_EventKind_WindowClose) {
+      app->quit = 1;
+    }
+  }
+
+  g_get_input(window, input, events);
+  if (g_key_pressed(input, G_Key_F3)) {
+    app->mode = (ED_Mode)!(U32)app->mode;
+  }
+
+  switch (app->mode) {
+    case ED_Mode_Level: {
+      ed_update_mode_level(app, input, delta_time);
+    }break;
+    case ED_Mode_LevelSelect: {
+      ed_update_mode_level_select(app, input, delta_time);
+    }break;
+  }
+}
+
+function void
+render(AppState *app)
+{
+  OS_Handle window = app->window;
+  R_Context *renderer = app->renderer;
+  R_Font *font = app->font;
+  G_AssetContext *assets = app->assets;
+
+  r_set_clear_color(v4f32(0,0,0,1));
+  r_set_viewport(os_window_client_rect(window));
+  r_begin_frame(renderer);
+
+  switch (app->mode) {
+    case ED_Mode_Level: {
+      ed_render_mode_level(app, renderer, assets);
+    }break;
+    case ED_Mode_LevelSelect: {
+      ed_render_mode_level_select(app, renderer, assets);
+    }break;
+  }
+
+  TempArena tmp = arena_temp_begin(app->arena);
+
+  String8 str = str8_pushf(tmp.arena, "Mouse: (%d, %d)", app->input.mouse.x, app->input.mouse.y);
+  r_text(renderer, str, app->font, 24, v2f32(20, 500), v4f32(1,1,1,1), 0);
+
+  str = str8_pushf(tmp.arena, "Selected Map: %d", app->dragging_map_idx);
+  r_text(renderer, str, app->font, 24, v2f32(20, 540), v4f32(1,1,1,1), 0);
+
+  str = str8_pushf(tmp.arena, "Mouse Down: %d", g_mouse_down(&app->input, G_MouseButton_Left));
+  r_text(renderer, str, app->font, 24, v2f32(20, 580), v4f32(1,1,1,1), 0);
+
+  str = str8_pushf(tmp.arena, "Drag Mouse Start: (%.1f,. %.1f)", app->drag_mouse_start.x, app->drag_mouse_start.y);
+  r_text(renderer, str, app->font, 24, v2f32(20, 620), v4f32(1,1,1,1), 0);
+
 
   arena_temp_end(tmp);
 
@@ -186,7 +334,7 @@ entry_point(void)
   app.assets = g_assets_alloc(S8("../data"));
 
   app.maps = g_maps_read(ED_DEFAULT_MAPS_PATH);
-  app.maps.count = G_MAPS_MAX;
+  //app.maps.count = G_MAPS_MAX;
   app.undo = ed_undo_make();
   G_TileMap *map = ed_map_get(&app.maps, app.map_ctrl.current_map_idx);
 
@@ -211,6 +359,16 @@ entry_point(void)
     app.resize_ctrl.square_size = 50;
     app.resize_ctrl.mode = ED_ResizeMode_Append;
   }
+
+  app.mode = ED_Mode_Level;
+
+  #if 0
+  app.maps.maps[0].level_select_offset = v2f32(20, 20);
+  app.maps.maps[1].level_select_offset = v2f32(20, 10);
+  app.maps.maps[2].level_select_offset = v2f32(20, -10);
+  g_maps_write(&app.maps, ED_DEFAULT_MAPS_PATH);
+  os_exit_process(0);
+  #endif
 
   while (!app.quit) {
     update(&app);
