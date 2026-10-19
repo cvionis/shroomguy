@@ -63,6 +63,7 @@ struct GameState {
 
   B32 quit;
   B32 lost;
+  B32 level_finished;
 };
 
 global GameState game;
@@ -140,6 +141,9 @@ update(F32 delta_time)
     if (sim.lost) {
       g_transition_f32_start(&game.blackout_state.tr, game.blackout_state.v, 0.f, 0.4f, G_TransitionCurve_Linear);
       game.lost = 1;
+    }
+    if (sim.finished) {
+      game.level_finished = 1;
     }
   }
 

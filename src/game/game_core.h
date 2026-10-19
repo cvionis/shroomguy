@@ -171,6 +171,7 @@ struct G_EntityMoveResult {
   G_TileToken dst_token;
   U32 dst_idx;
   B32 moved;
+  B32 exit_attempted;
 };
 
 struct G_EntityMineResult {
@@ -225,6 +226,7 @@ struct G_Level {
 
 struct G_LevelSimResult {
   B32 lost;
+  B32 finished;
 };
 
 struct G_LevelBoulderInfo {

@@ -555,14 +555,17 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       if (dst_tile & G_TileToken_Empty) {
         should_move = 1;
       }
+
       if (dst_tile & G_TileToken_BoulderSmall) {
         G_Entity *ent = g_small_boulder_from_tilemap_idx(level, dst_idx);
         should_move = g_entity_move(ent, level, dx, dy, move_transition).moved;
       }
 
-      // @Todo: I kind of just sharted this out. Clean up the logic a bit.
       B32 to_ladder = 0;
       B32 from_ladder = 0;
+      B32 to_exit = 0;
+      B32 from_exit = 0;
+
       if (ent_tile & G_TileToken_Player) {
         if (ent_tile & G_TileToken_Ladder) {
           from_ladder = 1;
@@ -576,6 +579,14 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
             should_move = 0;
           }
         }
+
+        if (ent_tile & G_TileToken_Exit) {
+          from_exit = 1;
+        }
+        if (dst_tile & G_TileToken_Exit) {
+          to_exit = 1;
+          should_move = 1;
+        }
       }
       else if (ent_tile & G_TileToken_BoulderSmall) {
         if (dst_tile & G_TileToken_EnemyGround) {
@@ -588,7 +599,8 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
         }
       }
 
-      // @Resume: Entering exit tiles; initial state shouldn't trigger this.
+      B32 exit_attempted = 0;
+
       if (should_move) {
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos,
                                  move_transition.speed, move_transition.curve);
@@ -616,12 +628,24 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
           map->tokens[dst_idx] =
             (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
         }
+
+        if (to_exit) {
+          map->tokens[ent_idx] = (G_TileToken)((U32)ent_tile & ~(U32)G_TileToken_Player);
+          map->tokens[dst_idx] = (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
+        }
+        else if (from_exit) {
+          map->tokens[ent_idx] = G_TileToken_Exit;
+          map->tokens[dst_idx] = (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
+          exit_attempted = 1;
+        }
+
         entity->tilemap_idx = dst_idx;
       }
 
       result.moved = should_move;
       result.dst_token = dst_tile;
       result.dst_idx = dst_idx;
+      result.exit_attempted = exit_attempted;
     }
   }
 
@@ -806,6 +830,10 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
       G_TileToken src_tile = G_TileToken_Empty;
       G_TileToken ent_tile = map->tokens[ent_idx];
+      if (ent_tile & G_TileToken_Exit) {
+        src_tile = G_TileToken_Exit;
+        ent_tile = (G_TileToken)((U32)ent_tile & ~(U32)G_TileToken_Exit);
+      }
 
       // @Todo: This is garbage
       U32 dst_idx = ent_idx;
@@ -814,7 +842,8 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
       for (;;) {
         dst_idx += map_width;
         dst_tile = map->tokens[dst_idx];
-        if (dst_tile != G_TileToken_Empty) {
+        if (!(dst_tile & G_TileToken_Empty) &&
+            !(dst_tile & G_TileToken_Exit)) {
           break;
         }
         drop_count += 1;
@@ -837,7 +866,7 @@ g_entity_apply_gravity(G_Entity *entity, G_Level *level)
                                  tr_speed, tr_curve);
 
         map->tokens[ent_idx] = src_tile;
-        map->tokens[dst_idx] = ent_tile;
+        map->tokens[dst_idx] = (G_TileToken)((U32)dst_tile | (U32)ent_tile);
         entity->tilemap_idx = dst_idx;
       }
 
@@ -1164,7 +1193,7 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     !player->move.active)
   {
     G_TileToken *tile_at_player = &level->map->tokens[player->tilemap_idx];
-    if (!(*tile_at_player & G_TileToken_Ladder)) {
+    if (!(*tile_at_player & G_TileToken_Ladder) && !(*tile_at_player & G_TileToken_Exit)) {
       g_undo_push(undo, map, &rsrc->state);
       *tile_at_player = (G_TileToken)((U32)*tile_at_player | (U32)G_TileToken_Ladder);
       g_rsrc_change(rsrc, -1, 0);
@@ -1187,6 +1216,11 @@ g_simulate_level(G_Level *level, G_UndoContext *undo, G_Input *input, G_Resource
     G_EntityMoveTransition tr = { 6.26f, G_TransitionCurve_ExponentialEaseIn };
     if (should_move) {
       G_EntityMoveResult move_result = g_entity_move(player, level, dx, dy, tr);
+      if (move_result.exit_attempted) {
+        if (rsrc->state.ores_count == rsrc->ores_max) {
+          result.finished = 1;
+        }
+      }
 
       G_EntityMineResult mine_result = g_entity_mine(player, level, rsrc, dx, dy);
       U32 above_mined_tile_idx = mine_result.dst_idx - map->width;
