@@ -547,7 +547,6 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
       S32 ent_idx = (S32)(ent_pos.x + ent_pos.y * map_width + 0.5f);
       S32 dst_idx = ent_idx + (dx + dy * map_width);
 
-      G_TileToken src_tile = G_TileToken_Empty;
       G_TileToken dst_tile = map->tokens[dst_idx];
       G_TileToken ent_tile = map->tokens[ent_idx];
 
@@ -589,6 +588,7 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
         }
       }
 
+      // @Resume: Entering exit tiles; initial state shouldn't trigger this.
       if (should_move) {
         g_transition_v2f32_start(&entity->move, ent_pos, dst_pos,
                                  move_transition.speed, move_transition.curve);
@@ -597,19 +597,24 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
             map->tokens[ent_idx] = G_TileToken_Ladder;
           }
           else {
-            map->tokens[ent_idx] = src_tile;
+            map->tokens[ent_idx] =
+              (G_TileToken)((U32)ent_tile & ~(U32)G_TileToken_Player);
           }
-          map->tokens[dst_idx] = (G_TileToken)((U32)ent_tile | (U32)G_TileToken_Ladder);
+
+          map->tokens[dst_idx] =
+            (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
         }
         else {
           if (from_ladder) {
             map->tokens[ent_idx] = G_TileToken_Ladder;
-            map->tokens[dst_idx] = G_TileToken_Player;
           }
           else {
-            map->tokens[ent_idx] = src_tile;
-            map->tokens[dst_idx] = ent_tile;
+            map->tokens[ent_idx] =
+              (G_TileToken)((U32)ent_tile & ~(U32)G_TileToken_Player);
           }
+
+          map->tokens[dst_idx] =
+            (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
         }
         entity->tilemap_idx = dst_idx;
       }
@@ -1470,7 +1475,8 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
     (U32)G_TileToken_BoulderSmall |
     (U32)G_TileToken_BoulderLarge |
     (U32)G_TileToken_Resource |
-    (U32)G_TileToken_Ladder;
+    (U32)G_TileToken_Ladder |
+    (U32)G_TileToken_Exit;
 
   // All other tiles
   for (S32 token_idx = 0; token_idx < token_count; token_idx += 1) {
@@ -1511,10 +1517,6 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
         sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
       }break;
 
-      case G_TileToken_Ladder: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
-      }break;
-
       case G_TileToken_Bedrock: {
         U32 filter = 0;
         U32 neighbors = 0;
@@ -1552,12 +1554,13 @@ g_render_tilemap(R_Context *renderer, G_AssetContext *assets, G_TileMap *map, F3
         else if ((neighbors & G_TileNeighborFlags_S) && (neighbors & G_TileNeighborFlags_E)) {
           sprite = g_assets_get_sprite(assets, S8("sprites/border_cnw.png"));
         }
-
       }break;
-
 
     }
 
+    if (token & G_TileToken_Exit) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/exit.png"));
+    }
     if (token & G_TileToken_Ladder) {
       sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
     }

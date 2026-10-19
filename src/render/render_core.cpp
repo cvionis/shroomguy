@@ -192,6 +192,7 @@ r_begin_frame(R_Context *ctx)
 {
   arena_clear(ctx->frame_arena);
   ctx->batch_table = ArenaPushArray(ctx->frame_arena, R_BatchSlot, R_BATCH_TABLE_SLOTS);
+
   r_backend_begin_frame();
 }
 

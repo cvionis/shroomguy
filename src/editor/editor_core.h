@@ -1,7 +1,7 @@
 #pragma once
 
 #define ED_DEFAULT_MAPS_PATH S8("../data/maps/default.maps")
-#define ED_CHOICES_COUNT 13
+#define ED_CHOICES_COUNT 14
 
 //
 // Undo system
@@ -68,8 +68,9 @@ global ED_ChoiceEntry ed_choice_table[ED_CHOICES_COUNT] = {
   { S8("sprites/player.png"), G_TileToken_Player, G_Key_9 },
   { S8("sprites/enemy_ground.png"), G_TileToken_EnemyGround, G_Key_Q },
   { S8("sprites/enemy_air.png"), G_TileToken_EnemyAir, G_Key_W },
-  { S8("sprites/ladder.png"), G_TileToken_Ladder, G_Key_E },
+  { S8("sprites/exit.png"), G_TileToken_Exit, G_Key_E },
   { S8("sprites/resource.png"), G_TileToken_Resource, G_Key_R },
+  { S8("sprites/ladder.png"), G_TileToken_Ladder, G_Key_A },
 };
 
 function void ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input);

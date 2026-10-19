@@ -229,7 +229,7 @@ render(void)
     R_Font *font = game.font;
 
     F32 loss_font_size = 32;
-    V4F32 loss_text_col = v4f32(0.95f, 0.95f, 0.95f, 1.f);
+    V4F32 loss_text_col = v4f32(0.95f, 0.95f, 0.95f, 1.f-game.blackout_state.v);
 
     String8 loss_str_0 = S8("Z to Undo");
     V2S32 text_dim_0 = f_text_string_dim_px(loss_str_0, font->cache, loss_font_size);
@@ -254,10 +254,8 @@ render(void)
       r_quad(renderer, &quad, 0);
     }
 
-    if (game.lost) {
-      r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);
-      r_text(renderer, loss_str_1, game.font, loss_font_size, v2f32(x1, lost_text_y + loss_text_vertical_spacing), loss_text_col, 0);
-    }
+    r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);
+    r_text(renderer, loss_str_1, game.font, loss_font_size, v2f32(x1, lost_text_y + loss_text_vertical_spacing), loss_text_col, 0);
   }
 
   r_flush(renderer);

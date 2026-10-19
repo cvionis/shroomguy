@@ -133,7 +133,8 @@ enum G_TileToken {
   G_TileToken_Player       = (1 << 13),
   G_TileToken_Lava         = (1 << 14),
   G_TileToken_Ladder       = (1 << 15),
-  G_TileToken_All          = (1 << 16) - 1,
+  G_TileToken_Exit         = (1 << 16),
+  G_TileToken_All          = (1 << 17) - 1,
 };
 
 enum G_TileMapFlags {

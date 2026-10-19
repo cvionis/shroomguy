@@ -79,7 +79,7 @@ ed_tilemap_column_append_left(Arena *arena, G_TileMap *map)
 
   S32 tiles_size = sizeof(G_TileToken)*tiles_count;
   for (S32 idx = 0; idx < tiles_size; idx += 1) {
-    map->tokens[idx] = G_TileToken_Empty;
+    map->tokens[idx] = G_TileToken_Bedrock;
   }
 
   map->width += 1;
@@ -106,7 +106,7 @@ ed_tilemap_column_append_right(Arena *arena, G_TileMap *map)
 
   S32 tiles_size = sizeof(G_TileToken)*tiles_count;
   for (S32 idx = 0; idx < tiles_size; idx += 1) {
-    map->tokens[idx] = G_TileToken_Empty;
+    map->tokens[idx] = G_TileToken_Bedrock;
   }
 
   map->width += 1;
@@ -185,7 +185,7 @@ ed_tilemap_row_append_top(Arena *arena, G_TileMap *map)
 
   S32 tiles_size = sizeof(G_TileToken)*tiles_count;
   for (S32 idx = 0; idx < tiles_size; idx += 1) {
-    map->tokens[idx] = G_TileToken_Empty;
+    map->tokens[idx] = G_TileToken_Bedrock;
   }
 
   map->height += 1;
@@ -209,10 +209,9 @@ ed_tilemap_row_append_bottom(Arena *arena, G_TileMap *map)
   G_TileMap *tmp = ArenaPushStruct(arena, G_TileMap);
   MemoryCopyStruct(tmp, map);
 
-
   S32 tiles_size = sizeof(G_TileToken)*tiles_count;
   for (S32 idx = 0; idx < tiles_size; idx += 1) {
-    map->tokens[idx] = G_TileToken_Empty;
+    map->tokens[idx] = G_TileToken_Bedrock;
   }
 
   map->height += 1;
@@ -320,41 +319,6 @@ ed_choice_ctrl_update(ED_ChoiceControl *ctrl, G_Input *input)
       ctrl->selected_choice_idx = choice_idx;
     }
   }
-#if 0
-  if (g_key_pressed(input, G_Key_1)) {
-    ctrl->selected_choice_idx = 0;
-  }
-  else if (g_key_pressed(input, G_Key_2)) {
-    ctrl->selected_choice_idx = 1;
-  }
-  else if (g_key_pressed(input, G_Key_3)) {
-    ctrl->selected_choice_idx = 2;
-  }
-  else if (g_key_pressed(input, G_Key_4)) {
-    ctrl->selected_choice_idx = 3;
-  }
-  else if (g_key_pressed(input, G_Key_5)) {
-    ctrl->selected_choice_idx = 4;
-  }
-  else if (g_key_pressed(input, G_Key_6)) {
-    ctrl->selected_choice_idx = 5;
-  }
-  else if (g_key_pressed(input, G_Key_7)) {
-    ctrl->selected_choice_idx = 6;
-  }
-  else if (g_key_pressed(input, G_Key_8)) {
-    ctrl->selected_choice_idx = 7;
-  }
-  else if (g_key_pressed(input, G_Key_9)) {
-    ctrl->selected_choice_idx = 8;
-  }
-  else if (g_key_pressed(input, G_Key_E)) {
-    ctrl->selected_choice_idx = 9;
-  }
-  else if (g_key_pressed(input, G_Key_R)) {
-    ctrl->selected_choice_idx = 10;
-  }
-#endif
 }
 
 function void
@@ -683,6 +647,9 @@ ed_map_ctrl_update(ED_MapControl *ctrl, ED_ChoiceControl *choice_ctrl, G_MapStor
     ed_undo_push(undo, map);
 
     ED_ChoiceEntry *choice = &ed_choice_table[choice_ctrl->selected_choice_idx];
+    if (choice->token & G_TileToken_Player) {
+      choice->token = (G_TileToken)((U32)choice->token | (U32)G_TileToken_Exit);
+    }
     map->tokens[ctrl->selected_tile_idx] = choice->token;
 
     ctrl->selected_tile_idx = -1;
@@ -733,55 +700,53 @@ ed_map_ctrl_render(R_Context *renderer, G_AssetContext *assets, G_MapStorage *ma
     spr_y = base_y + scale * (token_idx / map_width);
 
     G_TileToken token = tokens[token_idx];
-    switch (token) {
-      case G_TileToken_Empty: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));;
-      }break;
-      case G_TileToken_Dirt: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/dirt.png"));
-      }break;
-      case G_TileToken_StoneT0: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/stone_t0.png"));
-      }break;
-      case G_TileToken_StoneT1: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/stone_t1.png"));
-      }break;
-      case G_TileToken_OreT0: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/ore_t0.png"));
-      }break;
-      case G_TileToken_OreT1: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/ore_t1.png"));
-      }break;
-      case G_TileToken_OreT2: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
-      }break;
-      case G_TileToken_Bedrock: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
-      }break;
-      case G_TileToken_Player: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
-      }break;
-      case G_TileToken_EnemyGround: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/enemy_ground.png"));
-      }break;
-      case G_TileToken_EnemyAir: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/enemy_air.png"));
-      }break;
-      case G_TileToken_BoulderSmall: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_small.png"));
-      }break;
-      case G_TileToken_BoulderLarge: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/boulder_large.png"));
-      }break;
-      case G_TileToken_Lava: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/lava.png"));
-      }break;
-      case G_TileToken_Ladder: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
-      }break;
-      case G_TileToken_Resource: {
-        sprite = g_assets_get_sprite(assets, S8("sprites/resource.png"));
-      }break;
+    if (token & G_TileToken_Empty) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/empty.png"));
+    }
+    if (token & G_TileToken_Dirt) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/dirt.png"));
+    }
+    if (token & G_TileToken_StoneT0) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/stone_t0.png"));
+    }
+    if (token & G_TileToken_StoneT1) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/stone_t1.png"));
+    }
+    if (token & G_TileToken_OreT0) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/ore_t0.png"));
+    }
+    if (token & G_TileToken_OreT1) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/ore_t1.png"));
+    }
+    if (token & G_TileToken_OreT2) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/ore_t2.png"));
+    }
+    if (token & G_TileToken_Bedrock) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/bedrock.png"));
+    }
+    if (token & G_TileToken_EnemyGround) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/enemy_ground.png"));
+    }
+    if (token & G_TileToken_EnemyAir) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/enemy_air.png"));
+    }
+    if (token & G_TileToken_BoulderSmall) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/boulder_small.png"));
+    }
+    if (token & G_TileToken_BoulderLarge) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/boulder_large.png"));
+    }
+    if (token & G_TileToken_Lava) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/lava.png"));
+    }
+    if (token & G_TileToken_Ladder) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/ladder.png"));
+    }
+    if (token & G_TileToken_Resource) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/resource.png"));
+    }
+    if (token & G_TileToken_Player) {
+      sprite = g_assets_get_sprite(assets, S8("sprites/player.png"));
     }
 
     V4F32 col = v4f32(1,1,1,1);
@@ -825,6 +790,9 @@ ed_codepoint_from_key(G_Key key)
       }break;
       case G_Key_R: {
         codepoint = 'R';
+      }break;
+      case G_Key_A: {
+        codepoint = 'A';
       }break;
     }
   }

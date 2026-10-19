@@ -36,8 +36,11 @@ struct AppState {
   ED_ResizeControl resize_ctrl;
   ED_MapControl map_ctrl;
 
+  G_Level levels[64];
+
   ED_UndoContext undo;
 
+  // @Todo: Put these in ED_LevelSelectControl
   S32 dragging_map_idx = -1;
   V2F32 drag_mouse_start;
   V2F32 drag_offset_start;
@@ -224,22 +227,23 @@ ed_render_mode_level_select(AppState *app, R_Context *renderer, G_AssetContext *
 
     F32 x = scale * map->level_select_offset.x;
     F32 y = scale * map->level_select_offset.y;
-
     F32 x_center = x + (scale * map->width) * 0.5f;
 
-    G_Level level = g_level_from_tilemap(map);
-    level.map = map;
-    g_render_level(renderer, assets, &level, x, y, scale);
+    G_Level *level = &app->levels[map_idx];
+    g_render_level(renderer, assets, level, x, y, scale);
 
+    // @Resume
+    #if 0
     TempArena tmp = arena_temp_begin(app->arena);
     {
       String8 str = str8_pushf(tmp.arena, "%d", map_idx);
       r_text(renderer, str, app->font, 24, v2f32(x_center, y - 40), v4f32(1,1,1,1), 0);
     }
     arena_temp_end(tmp);
+    #endif
   }
 
-  r_text(renderer, S8("SAVED"), app->font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,app->save_text_a), 0);
+  //r_text(renderer, S8("SAVED"), app->font, 32, v2f32(16, 620), v4f32(0.5f,0.6f,0.5f,app->save_text_a), 0);
 }
 
 function void
@@ -259,7 +263,17 @@ update(AppState *app)
 
   g_get_input(window, input, events);
   if (g_key_pressed(input, G_Key_F3)) {
-    app->mode = (ED_Mode)!(U32)app->mode;
+    //app->mode = (ED_Mode)!(U32)app->mode;
+    app->mode = ED_Mode_LevelSelect;
+    G_MapStorage *storage = &app->maps;
+    G_TileMap *maps = storage->maps;;
+
+    S32 map_count = 3; //(S32)storage->count; // @Note: Temporary // @Todo: Need to track actual count
+    for (S32 map_idx = 0; map_idx < map_count; map_idx += 1) {
+      G_TileMap *map = &maps[map_idx];
+      app->levels[map_idx] = g_level_from_tilemap(map);
+      app->levels[map_idx].map = map;
+    }
   }
 
   switch (app->mode) {
@@ -295,9 +309,8 @@ render(AppState *app)
     }break;
   }
 
-  TempArena tmp = arena_temp_begin(app->arena);
-
   #if 0
+  TempArena tmp = arena_temp_begin(app->arena);
   String8 str = str8_pushf(tmp.arena, "Mouse: (%d, %d)", app->input.mouse.x, app->input.mouse.y);
   r_text(renderer, str, app->font, 24, v2f32(20, 500), v4f32(1,1,1,1), 0);
   str = str8_pushf(tmp.arena, "Selected Map: %d", app->dragging_map_idx);
@@ -306,10 +319,8 @@ render(AppState *app)
   r_text(renderer, str, app->font, 24, v2f32(20, 580), v4f32(1,1,1,1), 0);
   str = str8_pushf(tmp.arena, "Drag Mouse Start: (%.1f,. %.1f)", app->drag_mouse_start.x, app->drag_mouse_start.y);
   r_text(renderer, str, app->font, 24, v2f32(20, 620), v4f32(1,1,1,1), 0);
-  #endif
-
-
   arena_temp_end(tmp);
+  #endif
 
   r_flush(renderer);
   r_end_frame(renderer);
@@ -322,7 +333,7 @@ entry_point(void)
   os_gfx_init();
   r_init();
 
-  AppState app;
+  AppState app = {};
 
   app.window = os_window_open(S8("Editor"), 1280, 720);
   r_equip_window(app.window);
