@@ -143,12 +143,35 @@ update(F32 delta_time)
       game.lost = 1;
     }
     if (sim.finished) {
+      g_transition_f32_start(&game.blackout_state.tr, game.blackout_state.v, 0.f, 0.2f, G_TransitionCurve_Bump);
       game.level_finished = 1;
     }
   }
 
   if (game.lost) {
     g_transition_f32_update(&game.blackout_state.tr, &game.blackout_state.v, delta_time);
+  }
+
+  g_transition_f32_update(&game.blackout_state.tr, &game.blackout_state.v, delta_time);
+  if (game.level_finished) {
+    // @Note: Temporary code
+    if (absf32(game.blackout_state.tr.dst - game.blackout_state.v) <= 0.f) {
+      S32 new_map_idx = game.current_map_idx;
+      new_map_idx += 1;
+      new_map_idx = Min(new_map_idx, G_MAPS_MAX);
+
+      if (new_map_idx != game.current_map_idx) {
+        game.current_map = g_maps_get_copy(&game.maps, new_map_idx);
+        game.current_map_idx = new_map_idx;
+
+        game.level = g_level_from_tilemap(&game.current_map);
+        game.level.map = &game.current_map;
+        g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
+        g_undo_clear(&game.undo);
+
+        game.level_finished = 0;
+      }
+    }
   }
 
   m_begin_frame(game.mixer);
@@ -258,8 +281,10 @@ render(void)
       r_quad(renderer, &quad, 0);
     }
 
-    r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);
-    r_text(renderer, loss_str_1, game.font, loss_font_size, v2f32(x1, lost_text_y + loss_text_vertical_spacing), loss_text_col, 0);
+    if (game.lost) {
+      r_text(renderer, loss_str_0, game.font, loss_font_size, v2f32(x0, lost_text_y + 0), loss_text_col, 0);
+      r_text(renderer, loss_str_1, game.font, loss_font_size, v2f32(x1, lost_text_y + loss_text_vertical_spacing), loss_text_col, 0);
+    }
   }
 
   r_flush(renderer);

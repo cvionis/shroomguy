@@ -147,6 +147,9 @@ g_transition_f32_update(G_TransitionF32 *tr, F32 *out, F32 delta_time)
       case G_TransitionCurve_QuinticEaseInOut: {
         eased_t = ease_quintic_inout(clamped_t);
       }break;
+      case G_TransitionCurve_Bump: {
+        eased_t = sinf32(PI_F32 * clamped_t);
+      }break;
     }
 
     *out = lerpf32(tr->src, tr->dst, eased_t);
@@ -193,8 +196,10 @@ g_transition_v2f32_update(G_TransitionV2F32 *tr, V2F32 *out, F32 delta_time)
         case G_TransitionCurve_QuinticEaseInOut: {
           eased_t = ease_quintic_inout(clamped_t);
         }break;
+        case G_TransitionCurve_Bump: {
+          eased_t = sinf32(PI_F32 * clamped_t);
+        }break;
       }
-
       *out = v2f32_lerp(tr->src, tr->dst, eased_t);
     }
   }
@@ -632,11 +637,11 @@ g_entity_move(G_Entity *entity, G_Level *level, S32 dx, S32 dy, G_EntityMoveTran
         if (to_exit) {
           map->tokens[ent_idx] = (G_TileToken)((U32)ent_tile & ~(U32)G_TileToken_Player);
           map->tokens[dst_idx] = (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
+          exit_attempted = 1;
         }
         else if (from_exit) {
           map->tokens[ent_idx] = G_TileToken_Exit;
           map->tokens[dst_idx] = (G_TileToken)((U32)dst_tile | (U32)G_TileToken_Player);
-          exit_attempted = 1;
         }
 
         entity->tilemap_idx = dst_idx;

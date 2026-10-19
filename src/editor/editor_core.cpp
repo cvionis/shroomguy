@@ -651,7 +651,6 @@ ed_map_ctrl_update(ED_MapControl *ctrl, ED_ChoiceControl *choice_ctrl, G_MapStor
       choice->token = (G_TileToken)((U32)choice->token | (U32)G_TileToken_Exit);
     }
     map->tokens[ctrl->selected_tile_idx] = choice->token;
-
     ctrl->selected_tile_idx = -1;
   }
 

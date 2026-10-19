@@ -84,6 +84,7 @@ struct G_Input {
 
 enum G_TransitionCurve {
   G_TransitionCurve_Linear,
+  G_TransitionCurve_Bump,
   G_TransitionCurve_ExponentialEaseIn,
   G_TransitionCurve_QuinticEaseInOut,
 };
