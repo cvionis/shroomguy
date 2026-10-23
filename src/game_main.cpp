@@ -99,7 +99,7 @@ update(F32 delta_time)
 
       game.level = g_level_from_tilemap(&game.current_map);
       game.level.map = &game.current_map;
-      g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
+      g_rsrc_init(&game.rsrc, G_PLAYER_RESOURCE_START, game.level.ore_count);
 
       g_undo_clear(&game.undo);
     }
@@ -166,7 +166,7 @@ update(F32 delta_time)
 
         game.level = g_level_from_tilemap(&game.current_map);
         game.level.map = &game.current_map;
-        g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
+        g_rsrc_init(&game.rsrc, G_PLAYER_RESOURCE_START, game.level.ore_count);
         g_undo_clear(&game.undo);
 
         game.level_finished = 0;
@@ -321,7 +321,7 @@ entry_point(void)
   game.current_map = last_played_map;
   game.level = g_level_from_tilemap(&game.current_map);
   game.level.map = &game.current_map;
-  g_rsrc_init(&game.rsrc, G_MINE_MAX, game.level.ore_count);
+  g_rsrc_init(&game.rsrc, G_PLAYER_RESOURCE_START, game.level.ore_count);
   game.undo = g_undo_make();
 
   while (!game.quit) {
